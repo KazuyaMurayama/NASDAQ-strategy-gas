@@ -165,6 +165,60 @@ function removeAllTriggers() {
 
 
 /**
+ * LINE ユーザーID取得用 Webhook
+ * GASをウェブアプリとしてデプロイし、LINE Developers ConsoleのWebhook URLに設定する
+ * ボットにメッセージを送ると、ユーザーIDがログとスプレッドシートに記録される
+ */
+function doPost(e) {
+  try {
+    var json = JSON.parse(e.postData.contents);
+    var events = json.events;
+
+    for (var i = 0; i < events.length; i++) {
+      var event = events[i];
+      var userId = event.source.userId;
+
+      if (userId) {
+        Logger.log('LINE ユーザーID取得: ' + userId);
+
+        // Stateシートに記録
+        var ss = getSpreadsheet_();
+        var stateSheet = ss.getSheetByName(CONFIG.SHEET_STATE);
+        if (stateSheet) {
+          stateSheet.getRange('D3').setValue('LINE_USER_ID');
+          stateSheet.getRange('E3').setValue(userId);
+        }
+
+        // 確認メッセージを返信
+        if (CONFIG.LINE.CHANNEL_ACCESS_TOKEN) {
+          var replyUrl = 'https://api.line.me/v2/bot/message/reply';
+          var replyPayload = {
+            replyToken: event.replyToken,
+            messages: [{
+              type: 'text',
+              text: 'ユーザーID取得完了!\n' + userId + '\n\nこのIDをコード.gsのCONFIG.LINE.USER_IDに設定してください。'
+            }]
+          };
+          UrlFetchApp.fetch(replyUrl, {
+            method: 'post',
+            contentType: 'application/json',
+            headers: { 'Authorization': 'Bearer ' + CONFIG.LINE.CHANNEL_ACCESS_TOKEN },
+            payload: JSON.stringify(replyPayload),
+            muteHttpExceptions: true
+          });
+        }
+      }
+    }
+  } catch (err) {
+    Logger.log('doPost エラー: ' + err.message);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+
+/**
  * メニューをスプレッドシートに追加
  */
 function onOpen() {
