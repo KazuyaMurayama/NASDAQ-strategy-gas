@@ -1,5 +1,7 @@
 /**
- * Notify.gs - LINE / Email 通知
+ * Notify.gs - LINE Messaging API / Email 通知
+ *
+ * LINE Notify は2025年3月に終了したため、LINE Messaging API を使用
  */
 
 /**
@@ -9,7 +11,6 @@
 function sendNotification_(entry) {
   var prevPct = (entry.prev_leverage * 100).toFixed(1);
   var newPct = (entry.new_leverage * 100).toFixed(1);
-  var productPct = (entry.new_leverage * CONFIG.REBALANCE.PRODUCT_MULTIPLIER * 100).toFixed(0);
 
   var message =
     '[NASDAQ戦略シグナル]\n' +
@@ -30,8 +31,8 @@ function sendNotification_(entry) {
     'NASDAQ終値: ' + entry.close;
 
   // LINE通知
-  if (CONFIG.LINE_TOKEN) {
-    sendLineNotify_(message);
+  if (CONFIG.LINE.CHANNEL_ACCESS_TOKEN && CONFIG.LINE.USER_ID) {
+    sendLineMessage_(message);
   }
 
   // メール通知
@@ -40,7 +41,7 @@ function sendNotification_(entry) {
   }
 
   // どちらも未設定の場合はログに出力
-  if (!CONFIG.LINE_TOKEN && !CONFIG.EMAIL) {
+  if ((!CONFIG.LINE.CHANNEL_ACCESS_TOKEN || !CONFIG.LINE.USER_ID) && !CONFIG.EMAIL) {
     Logger.log('=== 通知内容（送信先未設定） ===');
     Logger.log(message);
   }
@@ -48,21 +49,32 @@ function sendNotification_(entry) {
 
 
 /**
- * LINE Notify でメッセージ送信
+ * LINE Messaging API でプッシュメッセージ送信
  * @param {string} message
  */
-function sendLineNotify_(message) {
-  if (!CONFIG.LINE_TOKEN) return;
+function sendLineMessage_(message) {
+  var token = CONFIG.LINE.CHANNEL_ACCESS_TOKEN;
+  var userId = CONFIG.LINE.USER_ID;
+  if (!token || !userId) return;
 
-  var url = 'https://notify-api.line.me/api/notify';
+  var url = 'https://api.line.me/v2/bot/message/push';
+  var payload = {
+    to: userId,
+    messages: [
+      {
+        type: 'text',
+        text: message
+      }
+    ]
+  };
+
   var options = {
     method: 'post',
+    contentType: 'application/json',
     headers: {
-      'Authorization': 'Bearer ' + CONFIG.LINE_TOKEN
+      'Authorization': 'Bearer ' + token
     },
-    payload: {
-      message: '\n' + message
-    },
+    payload: JSON.stringify(payload),
     muteHttpExceptions: true
   };
 
@@ -112,8 +124,8 @@ function sendErrorNotification_(error) {
     'エラー: ' + error.message + '\n' +
     'スタック: ' + (error.stack || 'N/A');
 
-  if (CONFIG.LINE_TOKEN) {
-    sendLineNotify_(message);
+  if (CONFIG.LINE.CHANNEL_ACCESS_TOKEN && CONFIG.LINE.USER_ID) {
+    sendLineMessage_(message);
   }
 
   if (CONFIG.EMAIL) {

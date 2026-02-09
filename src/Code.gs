@@ -61,7 +61,10 @@ var CONFIG = {
   },
 
   // 通知設定
-  LINE_TOKEN: '',  // LINE Notify トークン（手動設定）
+  LINE: {
+    CHANNEL_ACCESS_TOKEN: '',  // LINE Messaging API チャネルアクセストークン
+    USER_ID: ''                // 送信先のLINEユーザーID（U始まりの文字列）
+  },
   EMAIL: '',       // 通知先メール（手動設定）
   NOTIFY_ON_ERROR: true
 };
