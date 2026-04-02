@@ -1,5 +1,8 @@
 /**
- * DataFetch.gs - Yahoo Finance からNASDAQ終値を取得
+ * DataFetch.gs - Yahoo Finance から各資産の価格データを取得
+ *
+ * 主要: NASDAQ Composite (^IXIC)
+ * オプション: Gold先物 (GC=F), 10年国債利回り (^TNX)
  */
 
 /**
@@ -57,7 +60,6 @@ function fetchLatestPrice() {
 
 /**
  * 代替: Google Finance関数の値を読み取り
- * スプレッドシートにGOOGLEFINANCE数式を設置して読む方式
  */
 function fetchLatestPriceAlternative_() {
   try {
@@ -65,8 +67,6 @@ function fetchLatestPriceAlternative_() {
     var stateSheet = ss.getSheetByName(CONFIG.SHEET_STATE);
     if (!stateSheet) return null;
 
-    // State!E1にGOOGLEFINANCE関数を設置してある前提
-    // =GOOGLEFINANCE("INDEXNASDAQ:.IXIC","price")
     var cell = stateSheet.getRange('E1');
     var price = cell.getValue();
     if (!price || typeof price !== 'number') {
@@ -81,6 +81,94 @@ function fetchLatestPriceAlternative_() {
     };
   } catch (e) {
     Logger.log('代替取得エラー: ' + e.message);
+    return null;
+  }
+}
+
+
+/**
+ * Gold先物 (GC=F) の最新価格を取得（参考情報・筆記用）
+ * @return {Object|null} {date: string, close: number} or null
+ */
+function fetchGoldPrice() {
+  var url = 'https://query1.finance.yahoo.com/v8/finance/chart/' +
+            encodeURIComponent('GC=F') +
+            '?range=5d&interval=1d';
+
+  var options = {
+    muteHttpExceptions: true,
+    headers: { 'User-Agent': 'Mozilla/5.0' }
+  };
+
+  try {
+    var response = UrlFetchApp.fetch(url, options);
+    if (response.getResponseCode() !== 200) {
+      Logger.log('Gold価格取得失敗: HTTP ' + response.getResponseCode());
+      return null;
+    }
+
+    var json = JSON.parse(response.getContentText());
+    var result = json.chart.result[0];
+    var timestamps = result.timestamp;
+    var closes = result.indicators.quote[0].close;
+
+    for (var i = timestamps.length - 1; i >= 0; i--) {
+      if (closes[i] != null) {
+        var date = new Date(timestamps[i] * 1000);
+        var dateStr = Utilities.formatDate(date, 'America/New_York', 'yyyy-MM-dd');
+        return {
+          date: dateStr,
+          close: Math.round(closes[i] * 100) / 100
+        };
+      }
+    }
+    return null;
+  } catch (e) {
+    Logger.log('Gold価格取得エラー: ' + e.message);
+    return null;
+  }
+}
+
+
+/**
+ * 10年国債利回り (^TNX) を取得（参考情報・筆記用）
+ * @return {Object|null} {date: string, yield: number} or null
+ */
+function fetchBondYield() {
+  var url = 'https://query1.finance.yahoo.com/v8/finance/chart/' +
+            encodeURIComponent('^TNX') +
+            '?range=5d&interval=1d';
+
+  var options = {
+    muteHttpExceptions: true,
+    headers: { 'User-Agent': 'Mozilla/5.0' }
+  };
+
+  try {
+    var response = UrlFetchApp.fetch(url, options);
+    if (response.getResponseCode() !== 200) {
+      Logger.log('国債利回り取得失敗: HTTP ' + response.getResponseCode());
+      return null;
+    }
+
+    var json = JSON.parse(response.getContentText());
+    var result = json.chart.result[0];
+    var timestamps = result.timestamp;
+    var closes = result.indicators.quote[0].close;
+
+    for (var i = timestamps.length - 1; i >= 0; i--) {
+      if (closes[i] != null) {
+        var date = new Date(timestamps[i] * 1000);
+        var dateStr = Utilities.formatDate(date, 'America/New_York', 'yyyy-MM-dd');
+        return {
+          date: dateStr,
+          yield: Math.round(closes[i] * 1000) / 1000  // 小数点3位
+        };
+      }
+    }
+    return null;
+  } catch (e) {
+    Logger.log('国債利回り取得エラー: ' + e.message);
     return null;
   }
 }
@@ -205,10 +293,10 @@ function appendPrice_(ss, priceData) {
   sheet.appendRow([priceData.date, priceData.close]);
   Logger.log('価格追記: ' + priceData.date + ' = ' + priceData.close);
 
-  // 古いデータを削除（500行を超えたら先頭を削除）
-  var maxRows = 500;
+  // 古いデータを削除（600行を超えたら先頭を削除）
+  var maxRows = 600;
   var totalRows = sheet.getLastRow();
-  if (totalRows > maxRows + 1) {  // +1 for header
+  if (totalRows > maxRows + 1) {
     var deleteCount = totalRows - maxRows - 1;
     sheet.deleteRows(2, deleteCount);
     Logger.log('古いデータ ' + deleteCount + '行を削除');
