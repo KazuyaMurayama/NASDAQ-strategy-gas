@@ -12,18 +12,11 @@
 // Layer 1: DD（ドローダウン制御）— 出力: 0 or 1
 // =============================================
 
-/**
- * DDレイヤー: ヒステリシス付きドローダウン制御
- * @param {Array} prices - [{date, close}, ...] 日付昇順
- * @param {string} prevState - "HOLD" or "CASH"
- * @return {Object} {value: 0 or 1, state: "HOLD" or "CASH", ratio, peak}
- */
 function calcDD(prices, prevState) {
   var lookback = CONFIG.DD.LOOKBACK;
   var exitThreshold = CONFIG.DD.EXIT_THRESHOLD;
   var reentryThreshold = CONFIG.DD.REENTRY_THRESHOLD;
 
-  // 直近lookback日の最高値
   var startIdx = Math.max(0, prices.length - lookback);
   var peak = 0;
   for (var i = startIdx; i < prices.length; i++) {
@@ -55,27 +48,19 @@ function calcDD(prices, prevState) {
 // Layer 2: VT（ボラティリティ・ターゲティング）
 // =============================================
 
-/**
- * AsymEWMA: 非対称指数加重移動平均ボラティリティ
- * @param {Array} prices - [{date, close}, ...]
- * @param {number|null} prevVariance - 前日のvariance（Stateから）
- * @return {Object} {variance, annualized_vol}
- */
 function calcAsymEWMA(prices, prevVariance) {
-  var spanDown = CONFIG.ASYM_EWMA.SPAN_DOWN;  // 10
-  var spanUp = CONFIG.ASYM_EWMA.SPAN_UP;      // 30
-  var alphaDown = 2.0 / (spanDown + 1);       // 0.1818
-  var alphaUp = 2.0 / (spanUp + 1);           // 0.0645
+  var spanDown = CONFIG.ASYM_EWMA.SPAN_DOWN;
+  var spanUp = CONFIG.ASYM_EWMA.SPAN_UP;
+  var alphaDown = 2.0 / (spanDown + 1);
+  var alphaUp = 2.0 / (spanUp + 1);
 
   var variance;
 
   if (prevVariance != null && prevVariance > 0) {
-    // 再帰計算: 最新のリターンのみ使って更新
     var ret = prices[prices.length - 1].close / prices[prices.length - 2].close - 1;
     var alpha = ret < 0 ? alphaDown : alphaUp;
     variance = (1 - alpha) * prevVariance + alpha * ret * ret;
   } else {
-    // 初期化: 直近20日のリターンの分散から開始し、全データで再帰計算
     var initPeriod = Math.min(20, prices.length - 1);
     var initReturns = [];
     for (var j = prices.length - initPeriod - 1; j < prices.length - 1; j++) {
@@ -113,11 +98,6 @@ function calcAsymEWMA(prices, prevVariance) {
 }
 
 
-/**
- * TrendTV: トレンド連動ターゲットVol
- * @param {Array} prices - [{date, close}, ...]
- * @return {number} trend_tv (0.10 ~ 0.30)
- */
 function calcTrendTV(prices) {
   var maPeriod = CONFIG.TREND_TV.MA;
   var tvMin = CONFIG.TREND_TV.TV_MIN;
@@ -126,10 +106,9 @@ function calcTrendTV(prices) {
   var ratioHigh = CONFIG.TREND_TV.RATIO_HIGH;
 
   if (prices.length < maPeriod) {
-    return (tvMin + tvMax) / 2;  // データ不足時はデフォルト
+    return (tvMin + tvMax) / 2;
   }
 
-  // MA150
   var sum = 0;
   for (var i = prices.length - maPeriod; i < prices.length; i++) {
     sum += prices[i].close;
@@ -139,7 +118,6 @@ function calcTrendTV(prices) {
   var currentClose = prices[prices.length - 1].close;
   var ratio = currentClose / ma;
 
-  // 線形補間 + クリップ
   var trendTv = tvMin + (tvMax - tvMin) * (ratio - ratioLow) / (ratioHigh - ratioLow);
   trendTv = clip_(trendTv, tvMin, tvMax);
 
@@ -148,26 +126,24 @@ function calcTrendTV(prices) {
 
 
 /**
- * VT計算: TrendTV / AsymVol, clipped to [0, 1]
+ * VT計算: TrendTV / AsymVol
+ * 5層掛け合わせでは中間値が1.0を超えても良い。
+ * Python backtestのmax_lev=3.0に合わせて上限を設定。
+ * 最終rawLeverageのclip(0, 1.0)で制御する設計。
  * @param {number} trendTv
- * @param {number} asymVol - 年率化ボラティリティ
- * @return {number} VT (0.0 ~ 1.0)
+ * @param {number} asymVol
+ * @return {number} VT (0.0 ~ 3.0)
  */
 function calcVT(trendTv, asymVol) {
   if (asymVol <= 0) return 1.0;
-  return Math.min(trendTv / asymVol, 1.0);
+  return clip_(trendTv / asymVol, 0, 3.0);
 }
 
 
 // =============================================
-// Layer 3: SlopeMult（MA傾き乗数）— 出力: 0.3ー1.5
+// Layer 3: SlopeMult（MA傾き乗数）
 // =============================================
 
-/**
- * SlopeMult: MA200の傾きをZ-score化して乗数に変換
- * @param {Array} prices - [{date, close}, ...]
- * @return {number} slope_mult (0.3 ~ 1.5)
- */
 function calcSlopeMult(prices) {
   var maPeriod = CONFIG.SLOPE_MULT.MA;
   var normWindow = CONFIG.SLOPE_MULT.NORM_WINDOW;
@@ -181,7 +157,6 @@ function calcSlopeMult(prices) {
     return 1.0;
   }
 
-  // MA200を日ごとに計算（normWindow+1日分必要）
   var maValues = [];
   for (var d = prices.length - normWindow - 1; d < prices.length; d++) {
     var sum = 0;
@@ -191,13 +166,11 @@ function calcSlopeMult(prices) {
     maValues.push(sum / maPeriod);
   }
 
-  // 日次変化率（slope）
   var slopes = [];
   for (var i = 1; i < maValues.length; i++) {
     slopes.push(maValues[i] / maValues[i - 1] - 1);
   }
 
-  // Z-score: 直近60日のslopeでZ-score化
   var slopeMean = 0;
   for (var i = 0; i < slopes.length; i++) {
     slopeMean += slopes[i];
@@ -221,17 +194,12 @@ function calcSlopeMult(prices) {
 
 
 // =============================================
-// Layer 4: MomDecel（モメンタム減速）— 出力: 0.5ー1.3
+// Layer 4: MomDecel（モメンタム減速）
 // =============================================
 
-/**
- * MomDecel: 短期/長期モメンタムの乖離をZ-score化
- * @param {Array} prices - [{date, close}, ...]
- * @return {number} mom_decel (0.5 ~ 1.3)
- */
 function calcMomDecel(prices) {
-  var shortPeriod = CONFIG.MOM_DECEL.SHORT;   // 60
-  var longPeriod = CONFIG.MOM_DECEL.LONG;     // 180
+  var shortPeriod = CONFIG.MOM_DECEL.SHORT;
+  var longPeriod = CONFIG.MOM_DECEL.LONG;
   var sensitivity = CONFIG.MOM_DECEL.SENSITIVITY;
   var minVal = CONFIG.MOM_DECEL.MIN;
   var maxVal = CONFIG.MOM_DECEL.MAX;
@@ -242,7 +210,6 @@ function calcMomDecel(prices) {
     return 1.0;
   }
 
-  // decelを過去zWindow日分計算
   var decels = [];
   for (var d = prices.length - zWindow; d < prices.length; d++) {
     var momShort = prices[d].close / prices[d - shortPeriod].close - 1;
@@ -251,7 +218,6 @@ function calcMomDecel(prices) {
     decels.push(momShort - momLongNorm);
   }
 
-  // Z-score
   var decelMean = 0;
   for (var i = 0; i < decels.length; i++) {
     decelMean += decels[i];
@@ -275,40 +241,31 @@ function calcMomDecel(prices) {
 
 
 // =============================================
-// Layer 5: VIX_MeanReversion — 出力: 0.50ー1.15
+// Layer 5: VIX_MeanReversion
 // =============================================
 
 /**
  * VIX_MeanReversion: NASDAQ実現ボラティリティをVIX代理変数として使用
  *
- * vix_proxy = 20日実現ボラティリティ × √252
- * vix_ma    = vix_proxy.rolling(252).mean()
- * vix_std   = vix_proxy.rolling(252).std()
- * vix_z     = (vix_proxy - vix_ma) / vix_std
- * vix_mult  = clip(1.0 - 0.25 × vix_z, 0.50, 1.15)
- *
- * @param {Array} prices - [{date, close}, ...] 日付昇順
- * @return {Object} {vix_proxy, vix_z, mult}
+ * vix_proxy = 20日実現ボラティリティ * sqrt(252)
+ * vix_z     = (vix_proxy - 252日MA) / 252日std
+ * vix_mult  = clip(1.0 - 0.25 * vix_z, 0.50, 1.15)
  */
 function calcVIXMult(prices) {
-  var volWindow = CONFIG.VIX_MR.VOL_WINDOW;  // 20
-  var maWindow  = CONFIG.VIX_MR.MA_WINDOW;   // 252
-  var coeff     = CONFIG.VIX_MR.COEFF;       // 0.25
-  var minVal    = CONFIG.VIX_MR.MIN;         // 0.50
-  var maxVal    = CONFIG.VIX_MR.MAX;         // 1.15
+  var volWindow = CONFIG.VIX_MR.VOL_WINDOW;
+  var maWindow  = CONFIG.VIX_MR.MA_WINDOW;
+  var coeff     = CONFIG.VIX_MR.COEFF;
+  var minVal    = CONFIG.VIX_MR.MIN;
+  var maxVal    = CONFIG.VIX_MR.MAX;
 
-  // maWindow個のvix_proxyを計算するために必要な価格点数:
-  // 最古のvix_proxy点(startIdx)にはvolWindow日分のリターンが必要 → volWindow+maWindow+1点必要
   var needed = volWindow + maWindow + 1;
   if (prices.length < needed) {
     return { vix_proxy: 0.20, vix_z: 0.0, mult: 1.0 };
   }
 
-  // 直近maWindow個分のvix_proxy値を計算
   var vixProxies = [];
   var startIdx = prices.length - maWindow;
   for (var d = startIdx; d < prices.length; d++) {
-    // d点でのvolWindow日実現ボラ（内部: volWindow品の対数リターン二乗和）
     var sumSq = 0;
     for (var i = d - volWindow; i < d; i++) {
       var r = prices[i + 1].close / prices[i].close - 1;
@@ -318,10 +275,8 @@ function calcVIXMult(prices) {
     vixProxies.push(realizedVol);
   }
 
-  // 最新vix_proxy（最後の要素）
   var currentVixProxy = vixProxies[vixProxies.length - 1];
 
-  // 252日MA / std
   var vixMean = 0;
   for (var i = 0; i < vixProxies.length; i++) {
     vixMean += vixProxies[i];
