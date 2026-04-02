@@ -16,63 +16,48 @@ function sendNotification_(entry) {
   var newPct  = (entry.new_leverage  * 100).toFixed(1);
 
   var message =
-    '[Dyn 2x3x シグナル]
-' +
-    '日付: ' + entry.date + '
-' +
-    'DD状態: ' + entry.dd_state + '
-' +
-    '
-' +
-    '■ 目標配分:
-' +
-    'TQQQ (NASDAQ 3x): ' + wNasdaq + '%
-' +
-    '2036 (Gold 2x):   ' + wGold   + '%
-' +
-    'TMF  (Bond 3x):   ' + wBond   + '%
-' +
-    '
-' +
-    'レバレッジ: ' + prevPct + '% → ' + newPct + '%
-' +
-    '
-' +
-    '内訳:
-' +
+    '[Dyn 2x3x \u30b7\u30b0\u30ca\u30eb]\n' +
+    '\u65e5\u4ed8: ' + entry.date + '\n' +
+    'DD\u72b6\u614b: ' + entry.dd_state + '\n' +
+    '\n' +
+    '\u25a0 \u76ee\u6a19\u914d\u5206:\n' +
+    'TQQQ (NASDAQ 3x): ' + wNasdaq + '%\n' +
+    '2036 (Gold 2x):   ' + wGold   + '%\n' +
+    'TMF  (Bond 3x):   ' + wBond   + '%\n' +
+    '\n' +
+    '\u30ec\u30d0\u30ec\u30c3\u30b8: ' + prevPct + '% \u2192 ' + newPct + '%\n' +
+    '\n' +
+    '\u5185\u8a33:\n' +
     'DD='       + roundTo_(entry.dd_value,   2) +
     ', VT='     + roundTo_(entry.vt,         2) +
     ', Slope='  + roundTo_(entry.slope_mult, 2) +
     ', MomD='   + roundTo_(entry.mom_decel,  2) +
-    ', VIXmul=' + roundTo_(entry.vix_mult,   2) + '
-' +
+    ', VIXmul=' + roundTo_(entry.vix_mult,   2) + '\n' +
     'VIX_z=' + roundTo_(entry.vix_z, 2) +
-    ', raw='    + roundTo_(entry.raw_leverage, 3) + '
-' +
-    '
-' +
-    'NASDAQ終値: ' + entry.close;
+    ', raw='    + roundTo_(entry.raw_leverage, 3) + '\n' +
+    '\n' +
+    'NASDAQ\u7d42\u5024: ' + entry.close;
 
-  // LINE通知
+  // LINE\u901a\u77e5
   if (CONFIG.LINE.CHANNEL_ACCESS_TOKEN && CONFIG.LINE.USER_ID) {
     sendLineMessage_(message);
   }
 
-  // メール通知
+  // \u30e1\u30fc\u30eb\u901a\u77e5
   if (CONFIG.EMAIL) {
     sendEmailNotify_(entry.date, message);
   }
 
-  // どちらも未設定の場合はログに出力
+  // \u3069\u3061\u3089\u3082\u672a\u8a2d\u5b9a\u306e\u5834\u5408\u306f\u30ed\u30b0\u306b\u51fa\u529b
   if ((!CONFIG.LINE.CHANNEL_ACCESS_TOKEN || !CONFIG.LINE.USER_ID) && !CONFIG.EMAIL) {
-    Logger.log('=== 通知内容（送信先未設定） ===');
+    Logger.log('=== \u901a\u77e5\u5185\u5bb9\uff08\u9001\u4fe1\u5148\u672a\u8a2d\u5b9a\uff09 ===');
     Logger.log(message);
   }
 }
 
 
 /**
- * LINE Messaging API でプッシュメッセージ送信
+ * LINE Messaging API \u3067\u30d7\u30c3\u30b7\u30e5\u30e1\u30c3\u30bb\u30fc\u30b8\u9001\u4fe1
  * @param {string} message
  */
 function sendLineMessage_(message) {
@@ -105,20 +90,20 @@ function sendLineMessage_(message) {
     var response = UrlFetchApp.fetch(url, options);
     var code = response.getResponseCode();
     if (code === 200) {
-      Logger.log('LINE通知送信成功');
+      Logger.log('LINE\u901a\u77e5\u9001\u4fe1\u6210\u529f');
     } else {
-      Logger.log('LINE通知エラー: HTTP ' + code + ' - ' + response.getContentText());
+      Logger.log('LINE\u901a\u77e5\u30a8\u30e9\u30fc: HTTP ' + code + ' - ' + response.getContentText());
     }
   } catch (e) {
-    Logger.log('LINE通知例外: ' + e.message);
+    Logger.log('LINE\u901a\u77e5\u4f8b\u5916: ' + e.message);
   }
 }
 
 
 /**
- * Emailでメッセージ送信
- * @param {string} date - 日付
- * @param {string} body - 本文
+ * Email\u3067\u30e1\u30c3\u30bb\u30fc\u30b8\u9001\u4fe1
+ * @param {string} date - \u65e5\u4ed8
+ * @param {string} body - \u672c\u6587
  */
 function sendEmailNotify_(date, body) {
   if (!CONFIG.EMAIL) return;
@@ -126,29 +111,26 @@ function sendEmailNotify_(date, body) {
   try {
     MailApp.sendEmail({
       to: CONFIG.EMAIL,
-      subject: '[Dyn 2x3x] リバランスシグナル ' + date,
+      subject: '[Dyn 2x3x] \u30ea\u30d0\u30e9\u30f3\u30b9\u30b7\u30b0\u30ca\u30eb ' + date,
       body: body
     });
-    Logger.log('メール通知送信成功: ' + CONFIG.EMAIL);
+    Logger.log('\u30e1\u30fc\u30eb\u901a\u77e5\u9001\u4fe1\u6210\u529f: ' + CONFIG.EMAIL);
   } catch (e) {
-    Logger.log('メール通知例外: ' + e.message);
+    Logger.log('\u30e1\u30fc\u30eb\u901a\u77e5\u4f8b\u5916: ' + e.message);
   }
 }
 
 
 /**
- * エラー通知
+ * \u30a8\u30e9\u30fc\u901a\u77e5
  * @param {Error} error
  */
 function sendErrorNotification_(error) {
   var message =
-    '[Dyn 2x3x エラー]
-' +
-    '日時: ' + new Date().toLocaleString('ja-JP') + '
-' +
-    'エラー: ' + error.message + '
-' +
-    'スタック: ' + (error.stack || 'N/A');
+    '[Dyn 2x3x \u30a8\u30e9\u30fc]\n' +
+    '\u65e5\u6642: ' + new Date().toLocaleString('ja-JP') + '\n' +
+    '\u30a8\u30e9\u30fc: ' + error.message + '\n' +
+    '\u30b9\u30bf\u30c3\u30af: ' + (error.stack || 'N/A');
 
   if (CONFIG.LINE.CHANNEL_ACCESS_TOKEN && CONFIG.LINE.USER_ID) {
     sendLineMessage_(message);
@@ -158,18 +140,18 @@ function sendErrorNotification_(error) {
     try {
       MailApp.sendEmail({
         to: CONFIG.EMAIL,
-        subject: '[Dyn 2x3x] エラー発生',
+        subject: '[Dyn 2x3x] \u30a8\u30e9\u30fc\u767a\u751f',
         body: message
       });
     } catch (e) {
-      Logger.log('エラー通知メール送信失敗: ' + e.message);
+      Logger.log('\u30a8\u30e9\u30fc\u901a\u77e5\u30e1\u30fc\u30eb\u9001\u4fe1\u5931\u6557: ' + e.message);
     }
   }
 }
 
 
 /**
- * 通知テスト用
+ * \u901a\u77e5\u30c6\u30b9\u30c8\u7528
  */
 function testNotification() {
   var testEntry = {
@@ -194,5 +176,5 @@ function testNotification() {
     rebalanced: true
   };
   sendNotification_(testEntry);
-  Logger.log('テスト通知を送信しました');
+  Logger.log('\u30c6\u30b9\u30c8\u901a\u77e5\u3092\u9001\u4fe1\u3057\u307e\u3057\u305f');
 }
