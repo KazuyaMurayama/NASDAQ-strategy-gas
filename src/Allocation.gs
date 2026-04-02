@@ -12,9 +12,10 @@
 
 /**
  * 3資産の目標配分を計算
+ * 合計が必ず1.000になるよう、w_goldとw_bondをw_nasadqから逆算して確定する。
  * @param {number} rawLeverage - クリップ済みrawLeverage [0, 1]
  * @param {number} vixZ - VIX Z-score
- * @return {Object} {w_nasdaq, w_gold, w_bond}
+ * @return {Object} {w_nasdaq, w_gold, w_bond}  合計 = 1.000
  */
 function calcAllocation(rawLeverage, vixZ) {
   var cfg = CONFIG.ALLOCATION;
@@ -25,14 +26,19 @@ function calcAllocation(rawLeverage, vixZ) {
 
   wNasdaq = clip_(wNasdaq, cfg.W_NASDAQ_MIN, cfg.W_NASDAQ_MAX);
 
-  var remaining = 1 - wNasdaq;
-  var wGold = remaining * 0.50;
-  var wBond = remaining * 0.50;
+  // 小数点3桁に丸め、残余を Gold/Bond に等分
+  wNasdaq = Math.round(wNasdaq * 1000) / 1000;
+  var remaining = Math.round((1 - wNasdaq) * 1000) / 1000;
+
+  // 奇数残余（例: 0.267）を Gold に +0.001 割り当てて合計1.000を保証
+  var halfRaw = remaining / 2;
+  var wGold = Math.round(halfRaw * 1000) / 1000;
+  var wBond = Math.round((remaining - wGold) * 1000) / 1000;
 
   return {
-    w_nasdaq: Math.round(wNasdaq * 1000) / 1000,
-    w_gold:   Math.round(wGold * 1000) / 1000,
-    w_bond:   Math.round(wBond * 1000) / 1000
+    w_nasdaq: wNasdaq,
+    w_gold:   wGold,
+    w_bond:   wBond
   };
 }
 
