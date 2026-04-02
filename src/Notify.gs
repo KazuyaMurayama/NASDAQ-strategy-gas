@@ -9,25 +9,48 @@
  * @param {Object} entry - ログエントリ
  */
 function sendNotification_(entry) {
+  var wNasdaq = (entry.w_nasdaq * 100).toFixed(1);
+  var wGold   = (entry.w_gold   * 100).toFixed(1);
+  var wBond   = (entry.w_bond   * 100).toFixed(1);
   var prevPct = (entry.prev_leverage * 100).toFixed(1);
-  var newPct = (entry.new_leverage * 100).toFixed(1);
+  var newPct  = (entry.new_leverage  * 100).toFixed(1);
 
   var message =
-    '[NASDAQ戦略シグナル]\n' +
-    '日付: ' + entry.date + '\n' +
-    'DD状態: ' + entry.dd_state + '\n' +
-    'レバレッジ: ' + prevPct + '% → ' + newPct + '%（変更あり）\n' +
-    'アクション: 3倍商品の保有比率を' + prevPct + '%から' + newPct + '%に' +
-    (entry.new_leverage > entry.prev_leverage ? '増やして' : '減らして') + 'ください\n' +
-    '（5営業日以内に実行）\n' +
-    '\n' +
-    '内訳:\n' +
-    'DD=' + roundTo_(entry.dd_value, 1) +
-    ', VT=' + roundTo_(entry.vt, 2) +
-    ', Slope=' + roundTo_(entry.slope_mult, 2) +
-    ', MomDecel=' + roundTo_(entry.mom_decel, 2) + '\n' +
-    '→ raw=' + roundTo_(entry.raw_leverage, 2) + '\n' +
-    '\n' +
+    '[Dyn 2x3x シグナル]
+' +
+    '日付: ' + entry.date + '
+' +
+    'DD状態: ' + entry.dd_state + '
+' +
+    '
+' +
+    '■ 目標配分:
+' +
+    'TQQQ (NASDAQ 3x): ' + wNasdaq + '%
+' +
+    '2036 (Gold 2x):   ' + wGold   + '%
+' +
+    'TMF  (Bond 3x):   ' + wBond   + '%
+' +
+    '
+' +
+    'レバレッジ: ' + prevPct + '% → ' + newPct + '%
+' +
+    '
+' +
+    '内訳:
+' +
+    'DD='       + roundTo_(entry.dd_value,   2) +
+    ', VT='     + roundTo_(entry.vt,         2) +
+    ', Slope='  + roundTo_(entry.slope_mult, 2) +
+    ', MomD='   + roundTo_(entry.mom_decel,  2) +
+    ', VIXmul=' + roundTo_(entry.vix_mult,   2) + '
+' +
+    'VIX_z=' + roundTo_(entry.vix_z, 2) +
+    ', raw='    + roundTo_(entry.raw_leverage, 3) + '
+' +
+    '
+' +
     'NASDAQ終値: ' + entry.close;
 
   // LINE通知
@@ -103,7 +126,7 @@ function sendEmailNotify_(date, body) {
   try {
     MailApp.sendEmail({
       to: CONFIG.EMAIL,
-      subject: '[NASDAQ戦略] リバランスシグナル ' + date,
+      subject: '[Dyn 2x3x] リバランスシグナル ' + date,
       body: body
     });
     Logger.log('メール通知送信成功: ' + CONFIG.EMAIL);
@@ -119,9 +142,12 @@ function sendEmailNotify_(date, body) {
  */
 function sendErrorNotification_(error) {
   var message =
-    '[NASDAQ戦略 エラー]\n' +
-    '日時: ' + new Date().toLocaleString('ja-JP') + '\n' +
-    'エラー: ' + error.message + '\n' +
+    '[Dyn 2x3x エラー]
+' +
+    '日時: ' + new Date().toLocaleString('ja-JP') + '
+' +
+    'エラー: ' + error.message + '
+' +
     'スタック: ' + (error.stack || 'N/A');
 
   if (CONFIG.LINE.CHANNEL_ACCESS_TOKEN && CONFIG.LINE.USER_ID) {
@@ -132,7 +158,7 @@ function sendErrorNotification_(error) {
     try {
       MailApp.sendEmail({
         to: CONFIG.EMAIL,
-        subject: '[NASDAQ戦略] エラー発生',
+        subject: '[Dyn 2x3x] エラー発生',
         body: message
       });
     } catch (e) {
@@ -148,17 +174,23 @@ function sendErrorNotification_(error) {
 function testNotification() {
   var testEntry = {
     date: Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd'),
-    close: 15000,
+    close: 17500,
     dd_state: 'HOLD',
     dd_value: 1.0,
-    asym_vol: 0.25,
-    trend_tv: 0.28,
-    vt: 0.85,
-    slope_mult: 0.92,
-    mom_decel: 0.78,
-    raw_leverage: 0.61,
-    prev_leverage: 0.85,
-    new_leverage: 0.61,
+    asym_vol: 0.22,
+    trend_tv: 0.22,
+    vt: 0.90,
+    slope_mult: 0.95,
+    mom_decel: 0.88,
+    vix_proxy: 0.18,
+    vix_z: -0.5,
+    vix_mult: 1.125,
+    raw_leverage: 0.76,
+    prev_leverage: 0.80,
+    new_leverage: 0.76,
+    w_nasdaq: 0.744,
+    w_gold: 0.128,
+    w_bond: 0.128,
     rebalanced: true
   };
   sendNotification_(testEntry);
