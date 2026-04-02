@@ -12,60 +12,56 @@
 
 // ===== グローバル設定 =====
 var CONFIG = {
-  // スプレッドシートID（初回Setup実行時に自動設定、または手動設定）
   SPREADSHEET_ID: '',
 
-  // シート名
   SHEET_PRICE: 'PriceHistory',
   SHEET_STATE: 'State',
   SHEET_LOG: 'Log',
 
-  // データ取得設定
-  TICKER: '^IXIC',  // NASDAQ Composite
-  PRICE_DAYS_NEEDED: 350,  // VIX計算に252+20日+バッファ必要
+  TICKER: '^IXIC',
+  PRICE_DAYS_NEEDED: 350,
 
-  // 戦略パラメータ (A2 Optimized)
   DD: {
     LOOKBACK: 200,
     EXIT_THRESHOLD: 0.82,
     REENTRY_THRESHOLD: 0.92
   },
   ASYM_EWMA: {
-    SPAN_DOWN: 10,  // 旧: 5
-    SPAN_UP: 30     // 旧: 20
+    SPAN_DOWN: 10,
+    SPAN_UP: 30
   },
   TREND_TV: {
     MA: 150,
-    TV_MIN: 0.10,   // 旧: 0.15
-    TV_MAX: 0.30,   // 旧: 0.35
+    TV_MIN: 0.10,
+    TV_MAX: 0.30,
     RATIO_LOW: 0.85,
     RATIO_HIGH: 1.15
   },
   SLOPE_MULT: {
     MA: 200,
     NORM_WINDOW: 60,
-    BASE: 0.9,         // 旧: 0.7
-    SENSITIVITY: 0.35, // 旧: 0.3
+    BASE: 0.9,
+    SENSITIVITY: 0.35,
     MIN: 0.3,
     MAX: 1.5
   },
   MOM_DECEL: {
-    SHORT: 60,   // 旧: 40
-    LONG: 180,   // 旧: 120
+    SHORT: 60,
+    LONG: 180,
     SENSITIVITY: 0.3,
     MIN: 0.5,
     MAX: 1.3,
     Z_WINDOW: 120
   },
   VIX_MR: {
-    VOL_WINDOW: 20,    // 20日実現ボラティリティ
-    MA_WINDOW: 252,    // 252日移動平均ウィンドウ
-    COEFF: 0.25,       // VIX平均回帰係数
-    MIN: 0.50,         // 下限クリップ
-    MAX: 1.15          // 上限クリップ
+    VOL_WINDOW: 20,
+    MA_WINDOW: 252,
+    COEFF: 0.25,
+    MIN: 0.50,
+    MAX: 1.15
   },
   REBALANCE: {
-    THRESHOLD: 0.20,  // ドリフト20%超でリバランス実行
+    THRESHOLD: 0.20,
     LEVERAGE_MIN: 0.0,
     LEVERAGE_MAX: 1.0
   },
@@ -77,19 +73,28 @@ var CONFIG = {
     W_NASDAQ_MAX: 0.90
   },
 
-  // 通知設定
   LINE: {
-    CHANNEL_ACCESS_TOKEN: '',  // LINE Messaging API チャネルアクセストークン
-    USER_ID: ''                // 送信先のLINEユーザーID（U始まりの文字列）
+    CHANNEL_ACCESS_TOKEN: '',
+    USER_ID: ''
   },
-  EMAIL: '',       // 通知先メール（手動設定）
+  EMAIL: '',
   NOTIFY_ON_ERROR: true
 };
 
 
 /**
- * メイン処理: 毎営業日1回実行
+ * 全Layerで必要な最小データ日数を計算
+ * @return {number}
  */
+function calcMinDataNeeded_() {
+  var neededDD    = CONFIG.DD.LOOKBACK;                                         // 200
+  var neededSlope = CONFIG.SLOPE_MULT.MA + CONFIG.SLOPE_MULT.NORM_WINDOW + 1;  // 261
+  var neededVix   = CONFIG.VIX_MR.MA_WINDOW + CONFIG.VIX_MR.VOL_WINDOW + 1;   // 273
+  var neededMom   = CONFIG.MOM_DECEL.LONG + CONFIG.MOM_DECEL.Z_WINDOW;         // 300
+  return Math.max(neededDD, neededSlope, neededVix, neededMom);
+}
+
+
 function dailyUpdate() {
   var ss = getSpreadsheet_();
   var lock = LockService.getScriptLock();
@@ -102,31 +107,25 @@ function dailyUpdate() {
   }
 
   try {
-    // 1. 今日が営業日か確認
     if (!isTradingDay_()) {
       Logger.log('本日は営業日ではありません');
       return;
     }
 
-    // 2. Yahoo Financeから最新価格を取得してPriceHistoryに追記
     var newPrice = fetchLatestPrice();
     if (newPrice) {
       appendPrice_(ss, newPrice);
     }
 
-    // 3. PriceHistoryから直近データを読み込み
     var prices = loadPriceHistory_(ss);
-    var needed = CONFIG.VIX_MR.MA_WINDOW + CONFIG.VIX_MR.VOL_WINDOW + 1;
-    needed = Math.max(needed, CONFIG.DD.LOOKBACK);
+    var needed = calcMinDataNeeded_();
     if (prices.length < needed) {
       Logger.log('データ不足: ' + prices.length + '日分しかありません（最低' + needed + '日必要）');
       return;
     }
 
-    // 4. Stateを読み込み
     var state = loadState_(ss);
 
-    // 5. 5つのLayerを計算
     var dd = calcDD(prices, state.dd_state);
     var asymResult = calcAsymEWMA(prices, state.asym_variance);
     var trendTv = calcTrendTV(prices);
@@ -135,14 +134,11 @@ function dailyUpdate() {
     var momDecel = calcMomDecel(prices);
     var vixResult = calcVIXMult(prices);
 
-    // 6. raw_leverage算出 (5層掛け合わせ)
     var rawLeverage = dd.value * vt * slopeMult * momDecel * vixResult.mult;
     rawLeverage = clip_(rawLeverage, CONFIG.REBALANCE.LEVERAGE_MIN, CONFIG.REBALANCE.LEVERAGE_MAX);
 
-    // 7. 3資産目標配分を計算
     var targetWeights = calcAllocation(rawLeverage, vixResult.vix_z);
 
-    // 8. リバランス判定
     var prevWeights = state.current_weights;
     var ddTransition = (dd.state !== state.dd_state);
     var drift = calcMaxDrift(prevWeights, targetWeights);
@@ -151,7 +147,6 @@ function dailyUpdate() {
     var newWeights = shouldRebalance ? targetWeights : prevWeights;
     var newLeverage = shouldRebalance ? rawLeverage : state.current_leverage;
 
-    // 9. State更新
     var newState = {
       dd_state: dd.state,
       asym_variance: asymResult.variance,
@@ -161,7 +156,6 @@ function dailyUpdate() {
     };
     saveState_(ss, newState);
 
-    // 10. ログ記録
     var logEntry = {
       date: Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd'),
       close: prices[prices.length - 1].close,
@@ -185,7 +179,6 @@ function dailyUpdate() {
     };
     appendLog_(ss, logEntry);
 
-    // 11. 変更があれば通知
     if (shouldRebalance) {
       sendNotification_(logEntry);
     }
@@ -206,9 +199,6 @@ function dailyUpdate() {
 }
 
 
-/**
- * 手動実行: 計算結果を確認（リバランスは実行しない）
- */
 function dryRun() {
   var ss = getSpreadsheet_();
   var prices = loadPriceHistory_(ss);
@@ -219,8 +209,7 @@ function dryRun() {
   Logger.log('最新日付: ' + (prices.length > 0 ? prices[prices.length - 1].date : 'N/A'));
   Logger.log('現在のState: ' + JSON.stringify(state));
 
-  var needed = CONFIG.VIX_MR.MA_WINDOW + CONFIG.VIX_MR.VOL_WINDOW + 1;
-  needed = Math.max(needed, CONFIG.DD.LOOKBACK);
+  var needed = calcMinDataNeeded_();
   if (prices.length < needed) {
     Logger.log('データ不足: 計算できません（' + prices.length + '/' + needed + '日）');
     return;
@@ -269,8 +258,6 @@ function dryRun() {
 }
 
 
-// ===== ユーティリティ =====
-
 function clip_(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -278,7 +265,6 @@ function clip_(value, min, max) {
 function isTradingDay_() {
   var now = new Date();
   var day = now.getDay();
-  // 土日は休場（米国祝日は厳密にはチェックしないが、データ取得失敗で自然にスキップ）
   return day !== 0 && day !== 6;
 }
 
