@@ -2,9 +2,9 @@
  * Setup.gs - 初期セットアップとトリガー設定
  *
  * 初回のみ手動実行:
- *   1. setupSpreadsheet() - シート構成を作成
+ *   1. setupSpreadsheet()        - シート構成を作成
  *   2. initializeHistoricalData() - 過去データを一括取得
- *   3. setupDailyTrigger() - 日次トリガーを設定
+ *   3. setupDailyTrigger()       - 日次トリガーを設定
  */
 
 /**
@@ -24,21 +24,24 @@ function setupSpreadsheet() {
   priceSheet.setColumnWidth(2, 100);
   priceSheet.setFrozenRows(1);
 
-  // State シート
+  // State シート (7キー)
   var stateSheet = ss.getSheetByName(CONFIG.SHEET_STATE);
   if (!stateSheet) {
     stateSheet = ss.insertSheet(CONFIG.SHEET_STATE);
   }
   var stateData = [
-    ['key', 'value'],
-    ['dd_state', 'HOLD'],
-    ['asym_variance', ''],
+    ['key',              'value'],
+    ['dd_state',         'HOLD'],
+    ['asym_variance',    ''],
     ['current_leverage', 1.0],
-    ['last_update_date', '']
+    ['last_update_date', ''],
+    ['w_nasdaq',         ''],
+    ['w_gold',           ''],
+    ['w_bond',           '']
   ];
   stateSheet.getRange(1, 1, stateData.length, 2).setValues(stateData);
   stateSheet.getRange(1, 1, 1, 2).setFontWeight('bold');
-  stateSheet.setColumnWidth(1, 160);
+  stateSheet.setColumnWidth(1, 180);
   stateSheet.setColumnWidth(2, 160);
   stateSheet.setFrozenRows(1);
 
@@ -47,15 +50,17 @@ function setupSpreadsheet() {
   stateSheet.getRange('D1').setFontWeight('bold');
   stateSheet.getRange('E1').setFormula('=GOOGLEFINANCE("INDEXNASDAQ:.IXIC","price")');
 
-  // Log シート
+  // Log シート (20列)
   var logSheet = ss.getSheetByName(CONFIG.SHEET_LOG);
   if (!logSheet) {
     logSheet = ss.insertSheet(CONFIG.SHEET_LOG);
   }
   var logHeaders = [
     'date', 'close', 'dd_state', 'dd_value',
-    'asym_vol', 'trend_tv', 'vt', 'slope_mult',
-    'mom_decel', 'raw_leverage', 'prev_leverage', 'new_leverage',
+    'asym_vol', 'trend_tv', 'vt', 'slope_mult', 'mom_decel',
+    'vix_proxy', 'vix_z', 'vix_mult',
+    'raw_leverage', 'prev_leverage', 'new_leverage',
+    'w_nasdaq', 'w_gold', 'w_bond',
     'rebalanced', 'timestamp'
   ];
   logSheet.getRange(1, 1, 1, logHeaders.length).setValues([logHeaders]);
@@ -86,7 +91,8 @@ function initializeHistoricalData() {
   }
 
   Logger.log('過去データを取得中...');
-  var prices = fetchHistoricalPrices(CONFIG.PRICE_DAYS_NEEDED * 1.5);  // カレンダー日数に変換（余裕を持って）
+  // PRICE_DAYS_NEEDED日分の営業日に対してカレンダー日数は約1.5倍必要
+  var prices = fetchHistoricalPrices(Math.ceil(CONFIG.PRICE_DAYS_NEEDED * 1.5));
 
   if (prices.length === 0) {
     Logger.log('エラー: データを取得できませんでした');
@@ -107,11 +113,13 @@ function initializeHistoricalData() {
 
   Logger.log('過去データ書き込み完了: ' + rows.length + '日分');
 
-  // AsymEWMA の初期varianceを計算してStateに保存
+  // AsymEWMA の初期 variance を計算してStateに保存
   var state = loadState_(ss);
   var asymResult = calcAsymEWMA(prices, null);
   state.asym_variance = asymResult.variance;
   state.last_update_date = prices[prices.length - 1].date;
+  // 初期ウェイトは未設定（初回は必ずリバランスされる）
+  state.current_weights = { w_nasdaq: null, w_gold: null, w_bond: null };
   saveState_(ss, state);
 
   Logger.log('AsymEWMA初期variance: ' + asymResult.variance);
@@ -147,7 +155,7 @@ function setupDailyTrigger() {
   Logger.log('');
   Logger.log('運用開始前チェックリスト:');
   Logger.log('1. dryRun() を実行して計算結果を確認');
-  Logger.log('2. CONFIG.LINE_TOKEN または CONFIG.EMAIL を設定');
+  Logger.log('2. CONFIG.LINE または CONFIG.EMAIL を設定');
   Logger.log('3. testNotification() で通知テスト');
 }
 
@@ -167,7 +175,6 @@ function removeAllTriggers() {
 /**
  * LINE ユーザーID取得用 Webhook
  * GASをウェブアプリとしてデプロイし、LINE Developers ConsoleのWebhook URLに設定する
- * ボットにメッセージを送ると、ユーザーIDがログとスプレッドシートに記録される
  */
 function doPost(e) {
   try {
@@ -181,7 +188,6 @@ function doPost(e) {
       if (userId) {
         Logger.log('LINE ユーザーID取得: ' + userId);
 
-        // Stateシートに記録
         var ss = getSpreadsheet_();
         var stateSheet = ss.getSheetByName(CONFIG.SHEET_STATE);
         if (stateSheet) {
@@ -189,14 +195,16 @@ function doPost(e) {
           stateSheet.getRange('E3').setValue(userId);
         }
 
-        // 確認メッセージを返信
         if (CONFIG.LINE.CHANNEL_ACCESS_TOKEN) {
           var replyUrl = 'https://api.line.me/v2/bot/message/reply';
           var replyPayload = {
             replyToken: event.replyToken,
             messages: [{
               type: 'text',
-              text: 'ユーザーID取得完了!\n' + userId + '\n\nこのIDをコード.gsのCONFIG.LINE.USER_IDに設定してください。'
+              text: 'ユーザーID取得完了!
+' + userId + '
+
+このIDをコード.gsのCONFIG.LINE.USER_IDに設定してください。'
             }]
           };
           UrlFetchApp.fetch(replyUrl, {
@@ -223,7 +231,7 @@ function doPost(e) {
  */
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
-  ui.createMenu('NASDAQ戦略')
+  ui.createMenu('Dyn 2x3x戦略')
     .addItem('手動更新 (dailyUpdate)', 'dailyUpdate')
     .addItem('ドライラン', 'dryRun')
     .addSeparator()
