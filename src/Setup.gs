@@ -7,9 +7,6 @@
  *   3. setupDailyTrigger()       - 日次トリガーを設定
  */
 
-/**
- * Step 1: スプレッドシートのシート構成を作成
- */
 function setupSpreadsheet() {
   var ss = getSpreadsheet_();
 
@@ -67,7 +64,6 @@ function setupSpreadsheet() {
   logSheet.getRange(1, 1, 1, logHeaders.length).setFontWeight('bold');
   logSheet.setFrozenRows(1);
 
-  // デフォルトの「Sheet1」があれば削除
   var defaultSheet = ss.getSheetByName('Sheet1');
   if (defaultSheet && ss.getSheets().length > 1) {
     ss.deleteSheet(defaultSheet);
@@ -78,9 +74,6 @@ function setupSpreadsheet() {
 }
 
 
-/**
- * Step 2: Yahoo Finance から過去データを一括取得して PriceHistory に書き込み
- */
 function initializeHistoricalData() {
   var ss = getSpreadsheet_();
   var sheet = ss.getSheetByName(CONFIG.SHEET_PRICE);
@@ -91,7 +84,6 @@ function initializeHistoricalData() {
   }
 
   Logger.log('過去データを取得中...');
-  // PRICE_DAYS_NEEDED日分の営業日に対してカレンダー日数は約1.5倍必要
   var prices = fetchHistoricalPrices(Math.ceil(CONFIG.PRICE_DAYS_NEEDED * 1.5));
 
   if (prices.length === 0) {
@@ -99,13 +91,11 @@ function initializeHistoricalData() {
     return;
   }
 
-  // 既存データをクリア（ヘッダー以外）
   var lastRow = sheet.getLastRow();
   if (lastRow > 1) {
     sheet.deleteRows(2, lastRow - 1);
   }
 
-  // 一括書き込み
   var rows = prices.map(function(p) {
     return [p.date, p.close];
   });
@@ -113,12 +103,10 @@ function initializeHistoricalData() {
 
   Logger.log('過去データ書き込み完了: ' + rows.length + '日分');
 
-  // AsymEWMA の初期 variance を計算してStateに保存
   var state = loadState_(ss);
   var asymResult = calcAsymEWMA(prices, null);
   state.asym_variance = asymResult.variance;
   state.last_update_date = prices[prices.length - 1].date;
-  // 初期ウェイトは未設定（初回は必ずリバランスされる）
   state.current_weights = { w_nasdaq: null, w_gold: null, w_bond: null };
   saveState_(ss, state);
 
@@ -127,11 +115,7 @@ function initializeHistoricalData() {
 }
 
 
-/**
- * Step 3: 日次トリガーを設定（米国市場閉場後、日本時間 午前7:00-8:00）
- */
 function setupDailyTrigger() {
-  // 既存のトリガーを削除
   var triggers = ScriptApp.getProjectTriggers();
   for (var i = 0; i < triggers.length; i++) {
     if (triggers[i].getHandlerFunction() === 'dailyUpdate') {
@@ -140,8 +124,6 @@ function setupDailyTrigger() {
     }
   }
 
-  // 新しいトリガーを作成
-  // 日本時間 7:00-8:00 = 米国東部 17:00-18:00 (市場閉場後)
   ScriptApp.newTrigger('dailyUpdate')
     .timeBased()
     .everyDays(1)
@@ -160,9 +142,6 @@ function setupDailyTrigger() {
 }
 
 
-/**
- * トリガーを全削除
- */
 function removeAllTriggers() {
   var triggers = ScriptApp.getProjectTriggers();
   for (var i = 0; i < triggers.length; i++) {
@@ -172,10 +151,6 @@ function removeAllTriggers() {
 }
 
 
-/**
- * LINE ユーザーID取得用 Webhook
- * GASをウェブアプリとしてデプロイし、LINE Developers ConsoleのWebhook URLに設定する
- */
 function doPost(e) {
   try {
     var json = JSON.parse(e.postData.contents);
@@ -201,10 +176,7 @@ function doPost(e) {
             replyToken: event.replyToken,
             messages: [{
               type: 'text',
-              text: 'ユーザーID取得完了!
-' + userId + '
-
-このIDをコード.gsのCONFIG.LINE.USER_IDに設定してください。'
+              text: '\u30e6\u30fc\u30b6\u30fcID\u53d6\u5f97\u5b8c\u4e86!\n' + userId + '\n\n\u3053\u306eID\u3092\u30b3\u30fc\u30c9.gs\u306eCONFIG.LINE.USER_ID\u306b\u8a2d\u5b9a\u3057\u3066\u304f\u3060\u3055\u3044\u3002'
             }]
           };
           UrlFetchApp.fetch(replyUrl, {
@@ -226,9 +198,6 @@ function doPost(e) {
 }
 
 
-/**
- * メニューをスプレッドシートに追加
- */
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('Dyn 2x3x戦略')
