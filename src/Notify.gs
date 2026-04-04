@@ -45,26 +45,59 @@ function testNotification() {
 
 // ===== プライベート =====
 
+/**
+ * レジーム名を判定
+ * @param {string} ddState - 'HOLD' or 'CASH'
+ * @param {number} rawLeverage - 0〜1
+ * @return {string} レジーム名
+ */
+function getRegimeName_(ddState, rawLeverage) {
+  if (ddState === 'CASH') return 'DD発動中（退避）';
+  var lev = rawLeverage * 100;
+  if (lev < 10)  return '防御モード';
+  if (lev < 30)  return '回復初期';
+  if (lev < 50)  return '慎重運用';
+  if (lev < 70)  return '通常運用';
+  if (lev < 90)  return '積極運用';
+  return 'フルインベスト';
+}
+
+
 function buildRebalanceMessage_(e) {
-  return '[Dyn 2x3x シグナル]\n' +
-    '日付: ' + e.date + '  DD: ' + e.dd_state + '\n' +
-    '\n' +
-    '■ 目標配分:\n' +
-    'TQQQ (NASDAQ 3x): ' + pct_(e.w_nasdaq) + '\n' +
-    '2036 (Gold 2x):   ' + pct_(e.w_gold)   + '\n' +
-    'TMF  (Bond 3x):   ' + pct_(e.w_bond)   + '\n' +
-    '\n' +
-    'レバレッジ: ' + pct_(e.prev_leverage) + ' → ' + pct_(e.new_leverage) + '\n' +
-    '\n' +
-    'DD='       + r2_(e.dd_value,   2) +
-    ' VT='      + r2_(e.vt,         2) +
-    ' Slope='   + r2_(e.slope_mult, 2) +
-    ' MomD='    + r2_(e.mom_decel,  2) +
-    ' VIXmul='  + r2_(e.vix_mult,   2) + '\n' +
-    'VIX_z='    + r2_(e.vix_z, 2) +
-    ' raw='     + r2_(e.raw_leverage, 3) + '\n' +
-    '\n' +
-    'NASDAQ終値: ' + e.close;
+  // 実際の保有比率 = new_leverage × 各ウェイト
+  var lev = e.new_leverage;
+  var actualNasdaq = lev * e.w_nasdaq;
+  var actualGold   = lev * e.w_gold;
+  var actualBond   = lev * e.w_bond;
+  var actualCash   = 1 - lev;
+
+  var regime = getRegimeName_(e.dd_state, e.raw_leverage);
+
+  var lines = [
+    '[Dyn 2x3x シグナル] ' + e.date,
+    '━━━━━━━━━━━━━━━━',
+    '📊 実際の保有配分:',
+    '  TQQQ (NASDAQ 3x):  ' + pct_(actualNasdaq),
+    '  2036 (Gold 2x):    ' + pct_(actualGold),
+    '  TMF  (Bond 3x):    ' + pct_(actualBond),
+    '  CASH (現金):       ' + pct_(actualCash),
+    '',
+    '⚡ リバランス必要',
+    '  2営業日以内に実行してください',
+    '',
+    '参考（内部シグナル）:',
+    '  DD=' + e.dd_state +
+      ', rawLev=' + r2_(e.raw_leverage, 2) +
+      ', w_nasdaq=' + pct_(e.w_nasdaq),
+    '  VT=' + r2_(e.vt, 2) +
+      ', Slope=' + r2_(e.slope_mult, 2) +
+      ', Mom=' + r2_(e.mom_decel, 2) +
+      ', VIX=' + r2_(e.vix_mult, 2),
+    '  レジーム: ' + regime,
+    '  NASDAQ終値: ' + e.close,
+    '━━━━━━━━━━━━━━━━'
+  ];
+  return lines.join('\n');
 }
 
 

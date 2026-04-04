@@ -6,14 +6,9 @@
  *
  * 設定:
  *   CONFIG.STATUS_REPORT.ENABLED - true で毎日通知 (デフォルト: false)
- *   CONFIG.STATUS_REPORT.HOUR    - 通知するJST時刻 (デフォルト: 7 = 07:xx)
  *
  * 注意: dailyUpdate() から呼ばれる。単独トリガーは不要。
  */
-
-// DailyStatusAgent の設定は CONFIG.STATUS_REPORT で管理
-// Code.gs の CONFIG に追加が必要:
-//   STATUS_REPORT: { ENABLED: false }
 
 /**
  * 日次ステータスサマリーを送信（リバランス有無に関わらず）
@@ -23,27 +18,43 @@
  * @param {boolean} rebalanced - 本日リバランスしたか
  */
 function sendDailyStatus(entry, rebalanced) {
-  // 未設定、または無効なら何もしない
   var statusEnabled = CONFIG.STATUS_REPORT && CONFIG.STATUS_REPORT.ENABLED;
   if (!statusEnabled) return;
   // リバランス当日は sendNotification_ が送っているので重複しない
   if (rebalanced) return;
 
-  var w = entry.w_nasdaq != null
-    ? 'TQQQ=' + pct_(entry.w_nasdaq) + ' / Gold=' + pct_(entry.w_gold) + ' / Bond=' + pct_(entry.w_bond)
-    : '未設定';
+  var lev = entry.new_leverage != null ? entry.new_leverage : 0;
+  var actualNasdaq = entry.w_nasdaq != null ? lev * entry.w_nasdaq : null;
+  var actualGold   = entry.w_gold   != null ? lev * entry.w_gold   : null;
+  var actualBond   = entry.w_bond   != null ? lev * entry.w_bond   : null;
+  var actualCash   = 1 - lev;
+
+  var regime = getRegimeName_(entry.dd_state, entry.raw_leverage);
+
+  var hasWeights = entry.w_nasdaq != null;
 
   var lines = [
-    '[Dyn 2x3x 日次ステータス]',
-    '日付: '    + entry.date,
-    'NASDAQ: '   + entry.close,
+    '[Dyn 2x3x 日次ステータス] ' + entry.date,
+    '━━━━━━━━━━━━━━━━',
+    '📊 現在の保有配分:',
+    '  TQQQ (NASDAQ 3x):  ' + (hasWeights ? pct_(actualNasdaq) : 'N/A'),
+    '  2036 (Gold 2x):    ' + (hasWeights ? pct_(actualGold)   : 'N/A'),
+    '  TMF  (Bond 3x):    ' + (hasWeights ? pct_(actualBond)   : 'N/A'),
+    '  CASH (現金):       ' + (hasWeights ? pct_(actualCash)   : 'N/A'),
     '',
-    'DD: '       + entry.dd_state,
-    'VIX_z: '    + r2_(entry.vix_z, 2),
-    'rawLev: '   + r2_(entry.raw_leverage, 3),
+    '✅ リバランス不要',
     '',
-    '現在配分: ' + w,
-    'リバランス: なし'
+    '参考（内部シグナル）:',
+    '  DD=' + entry.dd_state +
+      ', rawLev=' + r2_(entry.raw_leverage, 2) +
+      ', w_nasdaq=' + (hasWeights ? pct_(entry.w_nasdaq) : 'N/A'),
+    '  VT=' + r2_(entry.vt, 2) +
+      ', Slope=' + r2_(entry.slope_mult, 2) +
+      ', Mom=' + r2_(entry.mom_decel, 2) +
+      ', VIX=' + r2_(entry.vix_mult, 2),
+    '  レジーム: ' + regime,
+    '  NASDAQ終値: ' + entry.close,
+    '━━━━━━━━━━━━━━━━'
   ];
   var message = lines.join('\n');
 
