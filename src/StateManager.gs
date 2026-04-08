@@ -10,7 +10,10 @@
  *   w_gold            - Gold 2xウェイト（数値）
  *   w_bond            - Bond 3xウェイト（数値）
  *
- * Logシート: 日次計算結果 (20列)
+ * Logシート: 日次計算結果 (24列)
+ *   1-18: 既存列（date〜w_bond）
+ *   19-22: 実保有比率（actual_tqqq, actual_gold, actual_bond, actual_cash）
+ *   23-24: rebalanced, timestamp
  */
 
 var STATE_DEFAULTS_ = {
@@ -92,13 +95,19 @@ function saveState_(ss, state) {
 
 
 /**
- * Logシートに計算結果を追記 (20列)
+ * Logシートに計算結果を追記 (24列)
+ * 列1-18: 既存、列19-22: 実保有比率、列23-24: rebalanced/timestamp
  * @param {Spreadsheet} ss
  * @param {Object} entry
  */
 function appendLog_(ss, entry) {
   var sheet = ss.getSheetByName(CONFIG.SHEET_LOG);
   if (!sheet) return;
+
+  var lev = entry.new_leverage || 0;
+  var wN  = entry.w_nasdaq || 0;
+  var wG  = entry.w_gold   || 0;
+  var wB  = entry.w_bond   || 0;
 
   sheet.appendRow([
     entry.date,
@@ -116,9 +125,13 @@ function appendLog_(ss, entry) {
     r2_(entry.raw_leverage,  4),
     r2_(entry.prev_leverage, 4),
     r2_(entry.new_leverage,  4),
-    r2_(entry.w_nasdaq,  4),
-    r2_(entry.w_gold,    4),
-    r2_(entry.w_bond,    4),
+    r2_(wN, 4),
+    r2_(wG, 4),
+    r2_(wB, 4),
+    r2_(lev * wN, 4),          // actual_tqqq
+    r2_(lev * wG, 4),          // actual_gold
+    r2_(lev * wB, 4),          // actual_bond
+    r2_(1 - lev,  4),          // actual_cash
     entry.rebalanced ? 'YES' : 'NO',
     new Date()
   ]);
