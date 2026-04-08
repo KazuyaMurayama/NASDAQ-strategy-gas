@@ -201,6 +201,8 @@ function migrateLogSheet() {
 
   if (newRows.length > 0) {
     sheet.getRange(2, 1, newRows.length, newHeaders.length).setValues(newRows);
+    // actual_tqqq〜actual_cash (列19-22) を数値フォーマットに強制設定（日付誤認識を防ぐ）
+    sheet.getRange(2, 19, newRows.length, 4).setNumberFormat('0.0000');
   }
 
   Logger.log('Logシート移行完了: ' + newRows.length + '行 × 24列');

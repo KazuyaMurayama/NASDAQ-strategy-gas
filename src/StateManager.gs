@@ -136,6 +136,10 @@ function appendLog_(ss, entry) {
     new Date()
   ]);
 
+  // actual_tqqq〜actual_cash (列19-22) を数値フォーマットに強制設定（日付誤認識を防ぐ）
+  var newRow = sheet.getLastRow();
+  sheet.getRange(newRow, 19, 1, 4).setNumberFormat('0.0000');
+
   // 1000行超過時に古い行を削除
   var total = sheet.getLastRow();
   if (total > 1001) {
