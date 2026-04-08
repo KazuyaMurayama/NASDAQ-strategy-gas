@@ -211,6 +211,26 @@ function migrateLogSheet() {
 
 
 /**
+ * Logシートのactual列（19-22列）の数値フォーマットを修正する
+ * migrateLogSheet()実行済みで日付表示になっている場合に実行する
+ */
+function fixLogSheetFormat() {
+  var ss = getSpreadsheet_();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_LOG);
+  if (!sheet) { Logger.log('Logシートが見つかりません'); return; }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) { Logger.log('データ行がありません'); return; }
+
+  // actual_tqqq〜actual_cash (列19-22) を数値フォーマットに強制設定
+  var dataRows = lastRow - 1;
+  sheet.getRange(2, 19, dataRows, 4).setNumberFormat('0.0000');
+
+  Logger.log('フォーマット修正完了: ' + dataRows + '行 × 4列（actual_tqqq〜actual_cash）');
+}
+
+
+/**
  * Stateシートに実保有配分の表示列を追加（D・E列）
  *
  * D列: ラベル, E列: 数式（B列のcurrent_leverage × w_*から自動計算）
@@ -296,7 +316,8 @@ function onOpen() {
     .addSeparator()
     .addSubMenu(ui.createMenu('データ移行（1回のみ）')
       .addItem('1. Logシート移行（実保有比率追加）', 'migrateLogSheet')
-      .addItem('2. Stateシート更新（実保有配分表示）', 'updateStateActuals'))
+      .addItem('2. Stateシート更新（実保有配分表示）', 'updateStateActuals')
+      .addItem('3. actual列フォーマット修正（日付→数値）', 'fixLogSheetFormat'))
     .addSeparator()
     .addItem('全トリガー削除', 'removeAllTriggers')
     .toUi();
