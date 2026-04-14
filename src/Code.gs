@@ -158,10 +158,12 @@ function dailyUpdate() {
 
     var targetW = calcAllocation(rawLev, vix.vix_z);
 
-    // リバランス判定
-    var ddTransition   = (dd.state !== state.dd_state);
-    var drift          = calcMaxDrift(state.current_weights, targetW);
-    var shouldRebalance = ddTransition || drift > CONFIG.REBALANCE.THRESHOLD;
+    // リバランス判定 — バックテストの rebalance_threshold() と完全一致
+    // DD退出(rawLev=0) / DD復帰(currentLev=0) は即時、それ以外は |raw - current| > THRESHOLD
+    var leverageDiff    = Math.abs(rawLev - state.current_leverage);
+    var ddToZero        = (rawLev === 0 && state.current_leverage > 0);
+    var ddFromZero      = (state.current_leverage === 0 && rawLev > 0);
+    var shouldRebalance = ddToZero || ddFromZero || (leverageDiff > CONFIG.REBALANCE.THRESHOLD);
 
     var newW   = shouldRebalance ? targetW : state.current_weights;
     var newLev = shouldRebalance ? rawLev  : state.current_leverage;
@@ -237,9 +239,11 @@ function dryRun() {
 
   var rawLev = clip_(dd.value * vt * slope * mom * vix.mult,
                      CONFIG.REBALANCE.LEVERAGE_MIN, CONFIG.REBALANCE.LEVERAGE_MAX);
-  var targetW = calcAllocation(rawLev, vix.vix_z);
-  var drift   = calcMaxDrift(state.current_weights, targetW);
-  var rebal   = (dd.state !== state.dd_state) || drift > CONFIG.REBALANCE.THRESHOLD;
+  var targetW      = calcAllocation(rawLev, vix.vix_z);
+  var leverageDiff = Math.abs(rawLev - state.current_leverage);
+  var ddToZero     = (rawLev === 0 && state.current_leverage > 0);
+  var ddFromZero   = (state.current_leverage === 0 && rawLev > 0);
+  var rebal        = ddToZero || ddFromZero || (leverageDiff > CONFIG.REBALANCE.THRESHOLD);
 
   Logger.log('DD:       ' + dd.state + '  ratio=' + dd.ratio.toFixed(4));
   Logger.log('AsymVol:  ' + asym.annualized_vol.toFixed(4));
@@ -247,7 +251,7 @@ function dryRun() {
   Logger.log('Slope:    ' + slope.toFixed(4));
   Logger.log('MomDecel: ' + mom.toFixed(4));
   Logger.log('VIX_z:    ' + vix.vix_z.toFixed(4) + '  mult=' + vix.mult.toFixed(4));
-  Logger.log('rawLev:   ' + rawLev.toFixed(4));
+  Logger.log('rawLev:   ' + rawLev.toFixed(4) + '  currentLev: ' + state.current_leverage.toFixed(4));
   Logger.log('--- 目標配分 ---');
   Logger.log('TQQQ: ' + pct_(targetW.w_nasdaq));
   Logger.log('2036: ' + pct_(targetW.w_gold));
@@ -255,7 +259,7 @@ function dryRun() {
   Logger.log('現在: TQQQ=' + pct_(state.current_weights.w_nasdaq) +
              ' Gold=' + pct_(state.current_weights.w_gold) +
              ' Bond=' + pct_(state.current_weights.w_bond));
-  Logger.log('ドリフト: ' + (drift * 100).toFixed(1) + '%  リバランス: ' + (rebal ? 'YES' : 'NO'));
+  Logger.log('レバレッジ差: ' + (leverageDiff * 100).toFixed(1) + '%  リバランス: ' + (rebal ? 'YES' : 'NO'));
 }
 
 
