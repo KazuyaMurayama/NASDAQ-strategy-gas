@@ -44,17 +44,19 @@ function setupSpreadsheet() {
   stateSheet.getRange('D1').setValue('NASDAQ (GoogleFinance)').setFontWeight('bold');
   stateSheet.getRange('E1').setFormula('=GOOGLEFINANCE("INDEXNASDAQ:.IXIC","price")');
 
-  // Log シート (24列)
+  // Log シート (24列) ※アクション優先列順
   var logSheet = ss.getSheetByName(CONFIG.SHEET_LOG) ||
                  ss.insertSheet(CONFIG.SHEET_LOG);
   var logHeaders = [
-    'date', 'close', 'dd_state', 'dd_value',
-    'asym_vol', 'trend_tv', 'vt', 'slope_mult', 'mom_decel',
-    'vix_proxy', 'vix_z', 'vix_mult',
-    'raw_leverage', 'prev_leverage', 'new_leverage',
-    'w_nasdaq', 'w_gold', 'w_bond',
+    'date', 'close',
     'actual_tqqq', 'actual_gold', 'actual_bond', 'actual_cash',
-    'rebalanced', 'timestamp'
+    'rebalanced',
+    'dd_state', 'raw_leverage', 'new_leverage',
+    'w_nasdaq', 'w_gold', 'w_bond',
+    'dd_value', 'asym_vol', 'trend_tv', 'vt',
+    'slope_mult', 'mom_decel',
+    'vix_proxy', 'vix_z', 'vix_mult',
+    'prev_leverage', 'timestamp'
   ];
   logSheet.getRange(1, 1, 1, logHeaders.length)
           .setValues([logHeaders])
@@ -299,8 +301,9 @@ function reorderLogSheet() {
 
 
 /**
- * Logシートのactual列（19-22列）の数値フォーマットを修正する
+ * Logシートのactual列の数値フォーマットを修正する
  * migrateLogSheet()実行済みで日付表示になっている場合に実行する
+ * actual_tqqq列を動的に検索するため、reorderLogSheet()実行前後どちらでも正常動作する
  */
 function fixLogSheetFormat() {
   var ss = getSpreadsheet_();
@@ -310,11 +313,18 @@ function fixLogSheetFormat() {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) { Logger.log('データ行がありません'); return; }
 
-  // actual_tqqq〜actual_cash (列19-22) を数値フォーマットに強制設定
-  var dataRows = lastRow - 1;
-  sheet.getRange(2, 19, dataRows, 4).setNumberFormat('0.0000');
+  // actual_tqqq列を動的に検索（reorderLogSheet実行後は列3、未実行時は列19）
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var tqqqCol = headers.indexOf('actual_tqqq') + 1;
+  if (tqqqCol <= 0) {
+    Logger.log('actual_tqqq列が見つかりません。先にmigrateLogSheet()を実行してください');
+    return;
+  }
 
-  Logger.log('フォーマット修正完了: ' + dataRows + '行 × 4列（actual_tqqq〜actual_cash）');
+  var dataRows = lastRow - 1;
+  sheet.getRange(2, tqqqCol, dataRows, 4).setNumberFormat('0.0000');
+
+  Logger.log('フォーマット修正完了: ' + dataRows + '行 × 4列（列' + tqqqCol + '-' + (tqqqCol + 3) + ': actual_tqqq〜actual_cash）');
 }
 
 
