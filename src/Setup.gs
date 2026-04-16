@@ -211,6 +211,94 @@ function migrateLogSheet() {
 
 
 /**
+ * Logシート列順を変更: actual列(C-F)・rebalanced(G)を先頭寄りに移動
+ *
+ * 旧順: date,close, dd_state,dd_value,...,w_bond, actual_tqqq,actual_gold,actual_bond,actual_cash, rebalanced,timestamp
+ * 新順: date,close, actual_tqqq,actual_gold,actual_bond,actual_cash, rebalanced, dd_state,raw_leverage,new_leverage,w_nasdaq,w_gold,w_bond, dd_value,...,vix_mult, prev_leverage,timestamp
+ *
+ * タイムアウト対策: 一括read→メモリ計算→一括write
+ * 冪等性: ヘッダーのC列が既にactual_tqqqなら中断
+ */
+function reorderLogSheet() {
+  var ss = getSpreadsheet_();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_LOG);
+  if (!sheet) { Logger.log('Logシートが見つかりません'); return; }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 1) { Logger.log('データなし'); return; }
+
+  // 冪等チェック: C列ヘッダーが既にactual_tqqqなら移行済み
+  var c3 = sheet.getRange(1, 3).getValue();
+  if (c3 === 'actual_tqqq') {
+    Logger.log('列順変更済みです（C列がactual_tqqqのためスキップ）');
+    return;
+  }
+
+  // 現在の列順(旧24列)を確認
+  // 旧: [0]date [1]close [2]dd_state [3]dd_value [4]asym_vol [5]trend_tv [6]vt
+  //     [7]slope_mult [8]mom_decel [9]vix_proxy [10]vix_z [11]vix_mult
+  //     [12]raw_leverage [13]prev_leverage [14]new_leverage
+  //     [15]w_nasdaq [16]w_gold [17]w_bond
+  //     [18]actual_tqqq [19]actual_gold [20]actual_bond [21]actual_cash
+  //     [22]rebalanced [23]timestamp
+  //
+  // 新: [0]date [1]close
+  //     [2]actual_tqqq [3]actual_gold [4]actual_bond [5]actual_cash
+  //     [6]rebalanced
+  //     [7]dd_state [8]raw_leverage [9]new_leverage
+  //     [10]w_nasdaq [11]w_gold [12]w_bond
+  //     [13]dd_value [14]asym_vol [15]trend_tv [16]vt
+  //     [17]slope_mult [18]mom_decel
+  //     [19]vix_proxy [20]vix_z [21]vix_mult
+  //     [22]prev_leverage [23]timestamp
+
+  var newHeaders = [
+    'date', 'close',
+    'actual_tqqq', 'actual_gold', 'actual_bond', 'actual_cash',
+    'rebalanced',
+    'dd_state', 'raw_leverage', 'new_leverage',
+    'w_nasdaq', 'w_gold', 'w_bond',
+    'dd_value', 'asym_vol', 'trend_tv', 'vt',
+    'slope_mult', 'mom_decel',
+    'vix_proxy', 'vix_z', 'vix_mult',
+    'prev_leverage', 'timestamp'
+  ];
+
+  // 一括読み込み
+  var dataRows = lastRow > 1
+    ? sheet.getRange(2, 1, lastRow - 1, 24).getValues()
+    : [];
+
+  // 旧インデックス → 新順に並べ替え
+  var newRows = dataRows.map(function(r) {
+    return [
+      r[0], r[1],
+      r[18], r[19], r[20], r[21],
+      r[22],
+      r[2], r[12], r[14],
+      r[15], r[16], r[17],
+      r[3], r[4], r[5], r[6],
+      r[7], r[8],
+      r[9], r[10], r[11],
+      r[13], r[23]
+    ];
+  });
+
+  // 一括書き込み
+  sheet.getRange(1, 1, 1, newHeaders.length)
+       .setValues([newHeaders])
+       .setFontWeight('bold');
+  if (newRows.length > 0) {
+    sheet.getRange(2, 1, newRows.length, newHeaders.length).setValues(newRows);
+    // actual列(C-F = 列3-6)の数値フォーマット設定
+    sheet.getRange(2, 3, newRows.length, 4).setNumberFormat('0.0000');
+  }
+
+  Logger.log('列順変更完了: ' + newRows.length + '行 × 24列（actual列をC-Fに移動）');
+}
+
+
+/**
  * Logシートのactual列（19-22列）の数値フォーマットを修正する
  * migrateLogSheet()実行済みで日付表示になっている場合に実行する
  */
@@ -317,7 +405,8 @@ function onOpen() {
     .addSubMenu(ui.createMenu('データ移行（1回のみ）')
       .addItem('1. Logシート移行（実保有比率追加）', 'migrateLogSheet')
       .addItem('2. Stateシート更新（実保有配分表示）', 'updateStateActuals')
-      .addItem('3. actual列フォーマット修正（日付→数値）', 'fixLogSheetFormat'))
+      .addItem('3. actual列フォーマット修正（日付→数値）', 'fixLogSheetFormat')
+      .addItem('4. Logシート列順変更（actual列を先頭へ）', 'reorderLogSheet'))
     .addSeparator()
     .addItem('全トリガー削除', 'removeAllTriggers')
     .toUi();
