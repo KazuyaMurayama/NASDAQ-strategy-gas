@@ -168,6 +168,9 @@ function dailyUpdate() {
     var newW   = shouldRebalance ? targetW : state.current_weights;
     var newLev = shouldRebalance ? rawLev  : state.current_leverage;
 
+    // 5営業日後フォワードリターン参照
+    var fwd = lookupForwardReturn_(newW ? newW.w_nasdaq : null, dd.state, rawLev);
+
     saveState_(ss, {
       dd_state:         dd.state,
       asym_variance:    asym.variance,
@@ -177,25 +180,27 @@ function dailyUpdate() {
     });
 
     var entry = {
-      date:         today_(),
-      close:        prices[prices.length - 1].close,
-      dd_state:     dd.state,
-      dd_value:     dd.value,
-      asym_vol:     asym.annualized_vol,
-      trend_tv:     trendTv,
-      vt:           vt,
-      slope_mult:   slope,
-      mom_decel:    mom,
-      vix_proxy:    vix.vix_proxy,
-      vix_z:        vix.vix_z,
-      vix_mult:     vix.mult,
-      raw_leverage: rawLev,
-      prev_leverage: state.current_leverage,
-      new_leverage:  newLev,
-      w_nasdaq:     newW.w_nasdaq,
-      w_gold:       newW.w_gold,
-      w_bond:       newW.w_bond,
-      rebalanced:   shouldRebalance
+      date:              today_(),
+      close:             prices[prices.length - 1].close,
+      dd_state:          dd.state,
+      dd_value:          dd.value,
+      asym_vol:          asym.annualized_vol,
+      trend_tv:          trendTv,
+      vt:                vt,
+      slope_mult:        slope,
+      mom_decel:         mom,
+      vix_proxy:         vix.vix_proxy,
+      vix_z:             vix.vix_z,
+      vix_mult:          vix.mult,
+      raw_leverage:      rawLev,
+      prev_leverage:     state.current_leverage,
+      new_leverage:      newLev,
+      w_nasdaq:          newW.w_nasdaq,
+      w_gold:            newW.w_gold,
+      w_bond:            newW.w_bond,
+      rebalanced:        shouldRebalance,
+      forward_cagr_5d:   fwd ? fwd.cagr   : null,
+      forward_median_5d: fwd ? fwd.median : null
     };
     appendLog_(ss, entry);
 
@@ -205,7 +210,8 @@ function dailyUpdate() {
     Logger.log('完了: TQQQ=' + pct_(newW.w_nasdaq) +
                ' Gold=' + pct_(newW.w_gold) +
                ' Bond=' + pct_(newW.w_bond) +
-               (shouldRebalance ? ' [REBALANCE]' : ''));
+               (shouldRebalance ? ' [REBALANCE]' : '') +
+               (fwd ? ' [fwd5d CAGR=+' + fwd.cagr + '%]' : ''));
 
   } catch (e) {
     Logger.log('ERROR: ' + e.message + '\n' + e.stack);
@@ -260,13 +266,19 @@ function dryRun() {
              ' Gold=' + pct_(state.current_weights.w_gold) +
              ' Bond=' + pct_(state.current_weights.w_bond));
   Logger.log('レバレッジ差: ' + (leverageDiff * 100).toFixed(1) + '%  リバランス: ' + (rebal ? 'YES' : 'NO'));
+
+  // フォワードリターン参照
+  var fwd = lookupForwardReturn_(targetW.w_nasdaq, dd.state, rawLev);
+  if (fwd) {
+    Logger.log('--- フォワードリターン（5営業日後） ---');
+    Logger.log('CAGR年率: +' + fwd.cagr + '%  中央値: +' + fwd.median + '%');
+    Logger.log('ビン: ' + fwd.binLabel);
+  }
 }
 
 
 /**
  * 緊急リセット: Stateを初期値に戻す
- * ウェイトも未設定にするため、次回dailyUpdateで必ずリバランスされる。
- * ※ SpreadsheetのUIメニューから実行することを想定。
  */
 function emergencyResetState() {
   var ui = SpreadsheetApp.getUi();
