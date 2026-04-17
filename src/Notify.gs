@@ -36,7 +36,8 @@ function testNotification() {
     slope_mult: 0.95, mom_decel: 0.88,
     vix_proxy: 0.18, vix_z: -0.5, vix_mult: 1.125,
     raw_leverage: 0.76, prev_leverage: 0.80, new_leverage: 0.76,
-    w_nasdaq: 0.744, w_gold: 0.128, w_bond: 0.128, rebalanced: true
+    w_nasdaq: 0.744, w_gold: 0.128, w_bond: 0.128, rebalanced: true,
+    forward_cagr_5d: 35.0, forward_median_5d: 0.71  // 70-90%×60-85%
   };
   sendNotification_(entry);
   Logger.log('テスト通知を送信しました');
@@ -73,6 +74,12 @@ function buildRebalanceMessage_(e) {
 
   var regime = getRegimeName_(e.dd_state, e.raw_leverage);
 
+  // フォワードリターン表示
+  var fwdCagr   = (e.forward_cagr_5d   != null && e.forward_cagr_5d   !== '')
+                  ? '+' + e.forward_cagr_5d   + '%' : 'N/A';
+  var fwdMedian = (e.forward_median_5d != null && e.forward_median_5d !== '')
+                  ? '+' + e.forward_median_5d + '%' : 'N/A';
+
   var lines = [
     '[Dyn 2x3x シグナル] ' + e.date,
     '━━━━━━━━━━━━━━━━',
@@ -81,6 +88,9 @@ function buildRebalanceMessage_(e) {
     '  2036 (Gold 2x):    ' + pct_(actualGold),
     '  TMF  (Bond 3x):    ' + pct_(actualBond),
     '  CASH (現金):       ' + pct_(actualCash),
+    '',
+    '📈 5営業日後フォワードリターン（過去統計）:',
+    '  CAGR年率: ' + fwdCagr + '  中央値: ' + fwdMedian,
     '',
     '⚡ リバランス必要',
     '  2営業日以内に実行してください',
