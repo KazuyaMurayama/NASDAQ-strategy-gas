@@ -319,7 +319,7 @@ function addForwardReturnCols() {
     var wNasdaq = Number(row[nqCol])  || 0;
     if (!wNasdaq) return ['', ''];
     var fwd = lookupForwardReturn_(wNasdaq, ddState, rawLev);
-    return fwd ? [fwd.cagr, fwd.median] : ['', ''];
+    return fwd ? [r2_(fwd.cagr, 1), r2_(fwd.median, 2)] : ['', ''];
   });
 
   sheet.getRange(2, newHdrCol, newCols.length, 2).setValues(newCols);
