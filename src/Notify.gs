@@ -65,20 +65,15 @@ function getRegimeName_(ddState, rawLeverage) {
 
 
 function buildRebalanceMessage_(e) {
-  // 実際の保有比率 = new_leverage × 各ウェイト
   var lev = e.new_leverage;
   var actualNasdaq = lev * e.w_nasdaq;
   var actualGold   = lev * e.w_gold;
   var actualBond   = lev * e.w_bond;
   var actualCash   = 1 - lev;
 
-  var regime = getRegimeName_(e.dd_state, e.raw_leverage);
-
-  // フォワードリターン表示
-  var fwdCagr   = (e.forward_cagr_5d   != null && e.forward_cagr_5d   !== '')
-                  ? '+' + e.forward_cagr_5d   + '%' : 'N/A';
-  var fwdMedian = (e.forward_median_5d != null && e.forward_median_5d !== '')
-                  ? '+' + e.forward_median_5d + '%' : 'N/A';
+  var regime    = getRegimeName_(e.dd_state, e.raw_leverage);
+  var fwdCagr   = formatFwdReturn_(e.forward_cagr_5d);
+  var fwdMedian = formatFwdReturn_(e.forward_median_5d);
 
   var lines = [
     '[Dyn 2x3x シグナル] ' + e.date,
