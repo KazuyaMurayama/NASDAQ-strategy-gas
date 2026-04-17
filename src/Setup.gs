@@ -1,16 +1,18 @@
 /**
  * Setup.gs - 初期セットアップとトリガー設定
  *
- * 初回のみ手動実行 (スプレッドシートメニュー「Dyn 2x3x戦略 > セットアップ」):
+ * 初回のみ手動実行:
  *   1. setupSpreadsheet()        - シート構成を作成
  *   2. initializeHistoricalData() - 過去データを一括取得
  *   3. setupDailyTrigger()       - 日次トリガーを設定
  *
- * 通知フォーマット改善後（1回のみ実行）:
- *   migrateLogSheet()      - Logシートに実保有比率4列を追加（過去データ含む）
- *   updateStateActuals()   - Stateシートに実保有配分表示を追加
- *   reorderLogSheet()      - actual列をC-Fに移動
- *   addForwardReturnCols() - 5営業日後フォワードリターン列を追加（Y・Z列）
+ * 移行関数（1回のみ実行、GASエディタから直接実行）:
+ *   migrateLogSheet()        - 実保有比率4列を追加
+ *   updateStateActuals()     - Stateシートに実保有配分表示を追加
+ *   fixLogSheetFormat()      - actual列フォーマット修正
+ *   reorderLogSheet()        - actual列をC-Fに移動
+ *   addForwardReturnCols()   - フォワードリターン列を追加
+ *   reorderLogSheetFinal()   - 最終列順整備（forward列をH-Iへ）★最新
  */
 
 function setupSpreadsheet() {
@@ -53,13 +55,13 @@ function setupSpreadsheet() {
     'date', 'close',
     'actual_tqqq', 'actual_gold', 'actual_bond', 'actual_cash',
     'rebalanced',
+    'forward_cagr_5d', 'forward_median_5d',
     'dd_state', 'raw_leverage', 'new_leverage',
     'w_nasdaq', 'w_gold', 'w_bond',
     'dd_value', 'asym_vol', 'trend_tv', 'vt',
     'slope_mult', 'mom_decel',
     'vix_proxy', 'vix_z', 'vix_mult',
-    'prev_leverage', 'timestamp',
-    'forward_cagr_5d', 'forward_median_5d'
+    'prev_leverage', 'timestamp'
   ];
   logSheet.getRange(1, 1, 1, logHeaders.length)
           .setValues([logHeaders])
@@ -127,7 +129,7 @@ function removeAllTriggers() {
 
 
 /**
- * Logシート移行: 実保有比率4列を追加（20→4列）
+ * Logシート移行: 実保有比率4列を追加（20→24列）
  * 冪等性: actual_tqqq列が既存の場合はスキップ
  */
 function migrateLogSheet() {
@@ -155,10 +157,7 @@ function migrateLogSheet() {
     'rebalanced', 'timestamp'
   ];
 
-  var dataRows = [];
-  if (lastRow > 1) {
-    dataRows = sheet.getRange(2, 1, lastRow - 1, 20).getValues();
-  }
+  var dataRows = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, 20).getValues() : [];
 
   var newRows = dataRows.map(function(row) {
     var lev = Number(row[14]) || 0;
@@ -186,70 +185,11 @@ function migrateLogSheet() {
     sheet.getRange(2, 19, newRows.length, 4).setNumberFormat('0.0000');
   }
   Logger.log('Logシート移行完了: ' + newRows.length + '行 × 24列');
-  Logger.log('次に updateStateActuals() を実行してください');
-}
-
-
-/**
- * Logシート列順を変更: actual列(C-F)を先頭寄りに移動
- * 冪等性: C列ヘッダーが既にactual_tqqqなら中断
- */
-function reorderLogSheet() {
-  var ss = getSpreadsheet_();
-  var sheet = ss.getSheetByName(CONFIG.SHEET_LOG);
-  if (!sheet) { Logger.log('Logシートが見つかりません'); return; }
-
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 1) { Logger.log('データなし'); return; }
-
-  var c3 = sheet.getRange(1, 3).getValue();
-  if (c3 === 'actual_tqqq') {
-    Logger.log('列順変更済みです（C列がactual_tqqqのためスキップ）');
-    return;
-  }
-
-  var newHeaders = [
-    'date', 'close',
-    'actual_tqqq', 'actual_gold', 'actual_bond', 'actual_cash',
-    'rebalanced',
-    'dd_state', 'raw_leverage', 'new_leverage',
-    'w_nasdaq', 'w_gold', 'w_bond',
-    'dd_value', 'asym_vol', 'trend_tv', 'vt',
-    'slope_mult', 'mom_decel',
-    'vix_proxy', 'vix_z', 'vix_mult',
-    'prev_leverage', 'timestamp'
-  ];
-
-  var dataRows = lastRow > 1
-    ? sheet.getRange(2, 1, lastRow - 1, 24).getValues()
-    : [];
-
-  var newRows = dataRows.map(function(r) {
-    return [
-      r[0], r[1],
-      r[18], r[19], r[20], r[21],
-      r[22],
-      r[2], r[12], r[14],
-      r[15], r[16], r[17],
-      r[3], r[4], r[5], r[6],
-      r[7], r[8],
-      r[9], r[10], r[11],
-      r[13], r[23]
-    ];
-  });
-
-  sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]).setFontWeight('bold');
-  if (newRows.length > 0) {
-    sheet.getRange(2, 1, newRows.length, newHeaders.length).setValues(newRows);
-    sheet.getRange(2, 3, newRows.length, 4).setNumberFormat('0.0000');
-  }
-  Logger.log('列順変更完了: ' + newRows.length + '行 × 24列（actual列をC-Fに移動）');
 }
 
 
 /**
  * Logシートのactual列の数値フォーマットを修正する
- * actual_tqqq列を動的に検索するため、reorderLogSheet()実行前後どちらでも正常動作する
  */
 function fixLogSheetFormat() {
   var ss = getSpreadsheet_();
@@ -266,18 +206,14 @@ function fixLogSheetFormat() {
     return;
   }
 
-  var dataRows = lastRow - 1;
-  sheet.getRange(2, tqqqCol, dataRows, 4).setNumberFormat('0.0000');
-  Logger.log('フォーマット修正完了: ' + dataRows + '行 × 4列（列' + tqqqCol + '-' + (tqqqCol + 3) + ': actual_tqqq〜actual_cash）');
+  sheet.getRange(2, tqqqCol, lastRow - 1, 4).setNumberFormat('0.0000');
+  Logger.log('フォーマット修正完了: ' + (lastRow - 1) + '行');
 }
 
 
 /**
- * Logシートに forward_cagr_5d / forward_median_5d 列を追加（Y・Z列）
- *
- * 実行タイミング: reorderLogSheet() 実行後（既存データをバックフィル）
+ * Logシートに forward_cagr_5d / forward_median_5d 列を末尾に追加してバックフィル
  * 冪等性: forward_cagr_5d列が既存の場合はスキップ
- * バックフィル: 既存行の dd_state / raw_leverage / w_nasdaq からビンを逆引き
  */
 function addForwardReturnCols() {
   var ss = getSpreadsheet_();
@@ -307,10 +243,7 @@ function addForwardReturnCols() {
        .setValues([['forward_cagr_5d', 'forward_median_5d']])
        .setFontWeight('bold');
 
-  if (lastRow < 2) {
-    Logger.log('ヘッダーのみ追加完了（データ行なし）');
-    return;
-  }
+  if (lastRow < 2) { Logger.log('ヘッダーのみ追加完了'); return; }
 
   var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
   var newCols = data.map(function(row) {
@@ -323,7 +256,84 @@ function addForwardReturnCols() {
   });
 
   sheet.getRange(2, newHdrCol, newCols.length, 2).setValues(newCols);
-  Logger.log('フォワードリターン列追加完了: ' + newCols.length + '行 × 2列（Y・Z列）バックフィル済み');
+  Logger.log('フォワードリターン列追加完了: ' + newCols.length + '行バックフィル済み');
+}
+
+
+/**
+ * Logシート列順を最終形に整備
+ *
+ * 最終列順:
+ *   A: date, B: close
+ *   C-F: actual_tqqq/gold/bond/cash
+ *   G: rebalanced
+ *   H: forward_cagr_5d, I: forward_median_5d  ← アクション情報を前へ
+ *   J: dd_state, K: raw_leverage, L: new_leverage
+ *   M: w_nasdaq, N: w_gold, O: w_bond
+ *   P: dd_value, Q: asym_vol, R: trend_tv, S: vt
+ *   T: slope_mult, U: mom_decel
+ *   V: vix_proxy, W: vix_z, X: vix_mult
+ *   Y: prev_leverage, Z: timestamp
+ *
+ * 冪等性: H列がforward_cagr_5dなら既に完了としてスキップ
+ * 列名で検索するため現在の列順に依存しない
+ */
+function reorderLogSheetFinal() {
+  var ss = getSpreadsheet_();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_LOG);
+  if (!sheet) { Logger.log('Logシートが見つかりません'); return; }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 1) { Logger.log('データなし'); return; }
+
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+
+  // 冪等性チェック
+  if (headers[7] === 'forward_cagr_5d') {
+    Logger.log('列順は既に最終形式です（スキップ）');
+    return;
+  }
+
+  if (headers.indexOf('forward_cagr_5d') < 0) {
+    Logger.log('forward_cagr_5d列がありません。先にaddForwardReturnCols()を実行してください');
+    return;
+  }
+
+  var newHeaders = [
+    'date', 'close',
+    'actual_tqqq', 'actual_gold', 'actual_bond', 'actual_cash',
+    'rebalanced',
+    'forward_cagr_5d', 'forward_median_5d',
+    'dd_state', 'raw_leverage', 'new_leverage',
+    'w_nasdaq', 'w_gold', 'w_bond',
+    'dd_value', 'asym_vol', 'trend_tv', 'vt',
+    'slope_mult', 'mom_decel',
+    'vix_proxy', 'vix_z', 'vix_mult',
+    'prev_leverage', 'timestamp'
+  ];
+
+  // 列名→現在のインデックスのマップを作成
+  var idxMap = {};
+  headers.forEach(function(h, i) { idxMap[String(h)] = i; });
+
+  var dataRows = lastRow > 1
+    ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues()
+    : [];
+
+  var newRows = dataRows.map(function(r) {
+    return newHeaders.map(function(h) {
+      var idx = idxMap[h];
+      return (idx !== undefined) ? r[idx] : '';
+    });
+  });
+
+  sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]).setFontWeight('bold');
+  if (newRows.length > 0) {
+    sheet.getRange(2, 1, newRows.length, newHeaders.length).setValues(newRows);
+    sheet.getRange(2, 3, newRows.length, 4).setNumberFormat('0.0000');
+  }
+  Logger.log('列順最終整備完了: ' + newRows.length + '行 × 26列（forward列をH-Iに移動）');
 }
 
 
@@ -347,7 +357,7 @@ function updateStateActuals() {
   sheet.getRange(1, 4, 1, 2).setFontWeight('bold');
   sheet.setColumnWidth(4, 140);
   sheet.setColumnWidth(5, 160);
-  Logger.log('Stateシートに実保有配分を追加しました（D・E列、数式で自動更新）');
+  Logger.log('Stateシートに実保有配分を追加しました（D・E列）');
 }
 
 
@@ -405,9 +415,9 @@ function onOpen() {
     .addSubMenu(ui.createMenu('データ移行（1回のみ）')
       .addItem('1. Logシート移行（実保有比率追加）', 'migrateLogSheet')
       .addItem('2. Stateシート更新（実保有配分表示）', 'updateStateActuals')
-      .addItem('3. actual列フォーマット修正（日付→数値）', 'fixLogSheetFormat')
-      .addItem('4. Logシート列順変更（actual列を先頭へ）', 'reorderLogSheet')
-      .addItem('5. フォワードリターン列追加（Y・Z列）', 'addForwardReturnCols'))
+      .addItem('3. actual列フォーマット修正', 'fixLogSheetFormat')
+      .addItem('4. フォワードリターン列追加', 'addForwardReturnCols')
+      .addItem('5. Logシート列順最終整備（★実行）', 'reorderLogSheetFinal'))
     .addSeparator()
     .addItem('全トリガー削除', 'removeAllTriggers')
     .toUi();
