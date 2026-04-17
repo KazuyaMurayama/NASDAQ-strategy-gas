@@ -29,15 +29,10 @@ function sendDailyStatus(entry, rebalanced) {
   var actualBond   = entry.w_bond   != null ? lev * entry.w_bond   : null;
   var actualCash   = 1 - lev;
 
-  var regime = getRegimeName_(entry.dd_state, entry.raw_leverage);
-
+  var regime    = getRegimeName_(entry.dd_state, entry.raw_leverage);
   var hasWeights = entry.w_nasdaq != null;
-
-  // フォワードリターン表示
-  var fwdCagr   = (entry.forward_cagr_5d   != null && entry.forward_cagr_5d   !== '')
-                  ? '+' + entry.forward_cagr_5d   + '%' : 'N/A';
-  var fwdMedian = (entry.forward_median_5d != null && entry.forward_median_5d !== '')
-                  ? '+' + entry.forward_median_5d + '%' : 'N/A';
+  var fwdCagr   = formatFwdReturn_(entry.forward_cagr_5d);
+  var fwdMedian = formatFwdReturn_(entry.forward_median_5d);
 
   var lines = [
     '[Dyn 2x3x 日次ステータス] ' + entry.date,
