@@ -158,9 +158,8 @@ function appendLog_(ss, entry) {
   sheet.getRange(newRow, 3, 1, 4).setNumberFormat('0.0000');
 
   // 1000行超過時に古い行を削除
-  var total = sheet.getLastRow();
-  if (total > 1001) {
-    sheet.deleteRows(2, total - 1001);
+  if (newRow > 1001) {
+    sheet.deleteRows(2, newRow - 1001);
   }
 }
 
@@ -175,6 +174,10 @@ function r2_(value, decimals) {
 // StateManager外からも使われる (Notify.gsなど)
 function roundTo_(value, decimals) {
   return r2_(value, decimals);
+}
+
+function formatFwdReturn_(value) {
+  return value != null ? '+' + value + '%' : 'N/A';
 }
 
 function parseFloat_(raw, fallback) {

@@ -36,7 +36,7 @@ var FORWARD_RETURN_5D_ = {
  *         テーブルに該当ビンがない場合は null
  */
 function lookupForwardReturn_(wNasdaq, ddState, rawLev) {
-  if (wNasdaq == null) return null;
+  if (wNasdaq == null || rawLev == null) return null;
 
   // NASDAQ枠ビン
   var nqBin;
