@@ -33,6 +33,12 @@ function sendDailyStatus(entry, rebalanced) {
 
   var hasWeights = entry.w_nasdaq != null;
 
+  // フォワードリターン表示
+  var fwdCagr   = (entry.forward_cagr_5d   != null && entry.forward_cagr_5d   !== '')
+                  ? '+' + entry.forward_cagr_5d   + '%' : 'N/A';
+  var fwdMedian = (entry.forward_median_5d != null && entry.forward_median_5d !== '')
+                  ? '+' + entry.forward_median_5d + '%' : 'N/A';
+
   var lines = [
     '[Dyn 2x3x 日次ステータス] ' + entry.date,
     '━━━━━━━━━━━━━━━━',
@@ -41,6 +47,9 @@ function sendDailyStatus(entry, rebalanced) {
     '  2036 (Gold 2x):    ' + (hasWeights ? pct_(actualGold)   : 'N/A'),
     '  TMF  (Bond 3x):    ' + (hasWeights ? pct_(actualBond)   : 'N/A'),
     '  CASH (現金):       ' + (hasWeights ? pct_(actualCash)   : 'N/A'),
+    '',
+    '📈 5営業日後フォワードリターン（過去統計）:',
+    '  CAGR年率: ' + fwdCagr + '  中央値: ' + fwdMedian,
     '',
     '✅ リバランス不要',
     '',
