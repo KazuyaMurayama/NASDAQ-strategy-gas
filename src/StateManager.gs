@@ -14,9 +14,14 @@
  *   A: date, B: close
  *   C-F: actual_tqqq/gold/bond/cash（実保有比率 = 結論）
  *   G: rebalanced
- *   H-X: 内部シグナル（dd_state, raw_leverage, w_*, 各Layer値, timestamp）
- *   Y: forward_cagr_5d（5営業日後CAGR年率、%単位 例:10.7）
- *   Z: forward_median_5d（5営業日後中央値、%単位 例:0.15）
+ *   H: forward_cagr_5d（5営業日後CAGR年率）
+ *   I: forward_median_5d（5営業日後中央値）
+ *   J: dd_state, K: raw_leverage, L: new_leverage
+ *   M: w_nasdaq, N: w_gold, O: w_bond
+ *   P: dd_value, Q: asym_vol, R: trend_tv, S: vt
+ *   T: slope_mult, U: mom_decel
+ *   V: vix_proxy, W: vix_z, X: vix_mult
+ *   Y: prev_leverage, Z: timestamp
  */
 
 var STATE_DEFAULTS_ = {
@@ -104,13 +109,13 @@ function saveState_(ss, state) {
  *   A: date, B: close
  *   C-F: actual_tqqq/gold/bond/cash（実保有比率）
  *   G: rebalanced
- *   H: dd_state, I: raw_leverage, J: new_leverage
- *   K: w_nasdaq, L: w_gold, M: w_bond
- *   N: dd_value, O: asym_vol, P: trend_tv, Q: vt
- *   R: slope_mult, S: mom_decel
- *   T: vix_proxy, U: vix_z, V: vix_mult
- *   W: prev_leverage, X: timestamp
- *   Y: forward_cagr_5d, Z: forward_median_5d
+ *   H: forward_cagr_5d, I: forward_median_5d
+ *   J: dd_state, K: raw_leverage, L: new_leverage
+ *   M: w_nasdaq, N: w_gold, O: w_bond
+ *   P: dd_value, Q: asym_vol, R: trend_tv, S: vt
+ *   T: slope_mult, U: mom_decel
+ *   V: vix_proxy, W: vix_z, X: vix_mult
+ *   Y: prev_leverage, Z: timestamp
  *
  * @param {Spreadsheet} ss
  * @param {Object} entry
@@ -132,25 +137,25 @@ function appendLog_(ss, entry) {
     r2_(lev * wB, 4),                       // E: actual_bond
     r2_(1 - lev,  4),                       // F: actual_cash
     entry.rebalanced ? 'YES' : 'NO',        // G: rebalanced
-    entry.dd_state,                          // H: dd_state
-    r2_(entry.raw_leverage,  4),            // I: raw_leverage
-    r2_(entry.new_leverage,  4),            // J: new_leverage
-    r2_(wN, 4),                             // K: w_nasdaq
-    r2_(wG, 4),                             // L: w_gold
-    r2_(wB, 4),                             // M: w_bond
-    r2_(entry.dd_value,   2),               // N: dd_value
-    r2_(entry.asym_vol,   4),               // O: asym_vol
-    r2_(entry.trend_tv,   4),               // P: trend_tv
-    r2_(entry.vt,         4),               // Q: vt
-    r2_(entry.slope_mult, 4),               // R: slope_mult
-    r2_(entry.mom_decel,  4),               // S: mom_decel
-    r2_(entry.vix_proxy,  4),               // T: vix_proxy
-    r2_(entry.vix_z,      4),               // U: vix_z
-    r2_(entry.vix_mult,   4),               // V: vix_mult
-    r2_(entry.prev_leverage, 4),            // W: prev_leverage
-    new Date(),                              // X: timestamp
-    r2_(entry.forward_cagr_5d,   1),       // Y: forward_cagr_5d
-    r2_(entry.forward_median_5d, 2)        // Z: forward_median_5d
+    r2_(entry.forward_cagr_5d,   1),       // H: forward_cagr_5d
+    r2_(entry.forward_median_5d, 2),       // I: forward_median_5d
+    entry.dd_state,                          // J: dd_state
+    r2_(entry.raw_leverage,  4),            // K: raw_leverage
+    r2_(entry.new_leverage,  4),            // L: new_leverage
+    r2_(wN, 4),                             // M: w_nasdaq
+    r2_(wG, 4),                             // N: w_gold
+    r2_(wB, 4),                             // O: w_bond
+    r2_(entry.dd_value,   2),               // P: dd_value
+    r2_(entry.asym_vol,   4),               // Q: asym_vol
+    r2_(entry.trend_tv,   4),               // R: trend_tv
+    r2_(entry.vt,         4),               // S: vt
+    r2_(entry.slope_mult, 4),               // T: slope_mult
+    r2_(entry.mom_decel,  4),               // U: mom_decel
+    r2_(entry.vix_proxy,  4),               // V: vix_proxy
+    r2_(entry.vix_z,      4),               // W: vix_z
+    r2_(entry.vix_mult,   4),               // X: vix_mult
+    r2_(entry.prev_leverage, 4),            // Y: prev_leverage
+    new Date()                               // Z: timestamp
   ]);
 
   // actual_tqqq〜actual_cash (C-F = 列3-6) を数値フォーマットに強制設定
