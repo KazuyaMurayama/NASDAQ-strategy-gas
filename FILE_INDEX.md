@@ -1,57 +1,48 @@
-# ファイルインデックス — NASDAQ Strategy GAS
+# File Index — nasdaq-strategy-gas
 
-> セッション開始時は `tasks.md` → このファイルの順で確認すること。
+最終更新: 2026-04-19
 
-最終更新: 2026-04-16
-リポジトリ: https://github.com/KazuyaMurayama/nasdaq-strategy-gas
-
----
-
-## ブランチ一覧
-
-| ブランチ | 用途 | 状態 |
-|---------|------|------|
-| `claude/implementation-JjBAl` | **メイン実装**（Dyn 2x3x A2 Optimized） | 本番運用中・最新 |
-| `claude/nasdaq-leverage-trading-gas-aG2xt` | 基本GAS実装（旧版・シンプル） | 参照のみ |
-| `claude/investment-strategy-tracking-gt8uD` | 投資戦略トラッキング連携 | 参照のみ |
-
----
-
-## Living Docs（日付なし）
-
-| ファイル | 説明 | ブランチ |
-|---------|------|---------|
-| `CLAUDE.md` | Claude Code 指示書（軽量） | 全ブランチ |
-| `FILE_INDEX.md` | このファイル | implementation-JjBAl |
-| `tasks.md` | タスク一覧（未完了・完了・バックログ） | implementation-JjBAl |
-| `README.md` | プロジェクト概要 | 全ブランチ |
-
-## ルールファイル
-
-| ファイル | 説明 |
+## 📁 Living Docs（毎回参照）
+| ファイル | 役割 |
 |---------|------|
-| `.claude/rules/response-rules.md` | 回答フォーマット・成果物報告・名前表記 |
-| `.claude/rules/git-rules.md` | Git操作ルール |
-| `.claude/rules/workflow-rules.md` | タスク管理・モデル使い分け・エージェント |
+| [CLAUDE.md](CLAUDE.md) | 運用ルール入口 |
+| [tasks.md](tasks.md) | タスク管理 |
+| [FILE_INDEX.md](FILE_INDEX.md) | このファイル |
 
----
-
-## GAS ソースコード（src/）— `implementation-JjBAl` ブランチ
-
-| ファイル | 説明 |
+## 📘 運用ルール（docs/rules/）
+| ファイル | 内容 |
 |---------|------|
-| `src/Code.gs` | **メインエントリー** — dailyUpdate・dryRun・リバランス判定 |
-| `src/Layers.gs` | 各レイヤー計算（DD/AsymEWMA/TrendTV/VT/SlopeMult/MomDecel/VIXMult） |
-| `src/Allocation.gs` | 3資産目標配分計算（calcAllocation / calcMaxDrift） |
-| `src/DataFetch.gs` | Yahoo Finance 価格取得・Gold/Bond価格取得 |
-| `src/StateManager.gs` | State読み書き・ログ記録 |
-| `src/Notify.gs` | LINE / Email 通知送信 |
-| `src/Setup.gs` | 初期セットアップ・シート作成・メニュー登録 |
+| [docs/rules/01_response-basics.md](docs/rules/01_response-basics.md) | 回答の基本ルール |
+| [docs/rules/02_task-management.md](docs/rules/02_task-management.md) | タスク管理 |
+| [docs/rules/03_file-index.md](docs/rules/03_file-index.md) | ファイルインデックス管理 |
+| [docs/rules/04_deliverables-and-models.md](docs/rules/04_deliverables-and-models.md) | 成果物・モデル・フォーマット |
+| [docs/rules/05_git-and-execution.md](docs/rules/05_git-and-execution.md) | Git操作・実行計画 |
 
----
+## 🔧 GAS ソースコード（src/）
+| ファイル | 役割 |
+|---------|------|
+| [src/Code.gs](src/Code.gs) | **メイン**: CONFIG, dailyUpdate(), dryRun() |
+| [src/Layers.gs](src/Layers.gs) | **5層計算**: DD/AsymEWMA/TrendTV/SlopeMult/MomDecel/VIX |
+| [src/Allocation.gs](src/Allocation.gs) | 3資産配分 (TQQQ/Gold/TMF) |
+| [src/DataFetch.gs](src/DataFetch.gs) | Yahoo Finance 価格取得 |
+| [src/StateManager.gs](src/StateManager.gs) | State/Log シート管理 |
+| [src/Notify.gs](src/Notify.gs) | LINE/Gmail 通知 |
+| [src/Setup.gs](src/Setup.gs) | 初期セットアップ、マイグレーション |
+| [src/DailyStatusAgent.gs](src/DailyStatusAgent.gs) | 日次ステータス通知 |
+| [src/ForwardReturn.gs](src/ForwardReturn.gs) | 前向きリターン計算 |
+| [src/HealthCheckAgent.gs](src/HealthCheckAgent.gs) | データ健全性チェック・自動修復 |
 
-## セッションサマリー
+## 📂 その他
+| ファイル | 役割 |
+|---------|------|
+| [README.md](README.md) | プロジェクト概要・セットアップ手順 |
+| [docs/session-summary-2026-04-09.md](docs/session-summary-2026-04-09.md) | 2026-04-09 時点の実装サマリー |
+| [.claude/rules/](. claude/rules/) | レガシー rules（旧セッションのもの、参考） |
 
-| ファイル | 説明 | ブランチ |
-|---------|------|---------|
-| `docs/SESSION_SUMMARY_2026-04-09.md` | 最新セッションサマリー（通知・スプレッドシート改善） | implementation-JjBAl |
+## 🌿 Branches（参考・main が最新スーパーセット）
+- `claude/implementation-JjBAl` — main の元。履歴参照用
+- `claude/investment-strategy-tracking-gt8uD` — 旧Dyn-Hybrid (EWMA VIX) 実装。**戦略比較時のみ参照**
+- `claude/create-file-index-vVbP4` — FILE_INDEX.md 作成初版
+- `claude/nasdaq-leverage-trading-gas-aG2xt` — LINE Webhook初期実装
+
+**同種ファイルが複数ある場合は main を優先、ブランチは歴史的参照のみ。**

@@ -1,40 +1,26 @@
-# NASDAQ Strategy GAS — Claude Code ガイド
+# nasdaq-strategy-gas — 運用ルール入口
 
-## 必読ルールファイル（セッション開始時に必ず読み込む）
+このリポジトリは **main 単一ブランチ運用**。セッション開始時は必ず以下の順に参照すること。
 
-| ファイル | 内容 |
-|---------|------|
-| [`.claude/rules/response-rules.md`](.claude/rules/response-rules.md) | 回答フォーマット・成果物報告・名前表記 |
-| [`.claude/rules/git-rules.md`](.claude/rules/git-rules.md) | Git操作ルール（ブランチ作成禁止等） |
-| [`.claude/rules/workflow-rules.md`](.claude/rules/workflow-rules.md) | タスク管理・モデル使い分け・エージェント構成 |
+## セッション開始時の参照順序
+1. **FILE_INDEX.md** — 全ファイルの所在・優先度
+2. **tasks.md** — 未完了タスクと進捗
+3. このCLAUDE.md — ルール入口
 
-## セッション開始チェックリスト
+## 運用ルール（詳細はスキルファイル参照）
 
-1. 上記ルールファイルを読み込む
-2. [`FILE_INDEX.md`](./FILE_INDEX.md) でファイル構成を把握する
-3. [`tasks.md`](./tasks.md) で未完了タスクを確認する
+| # | ファイル | 内容 |
+|---|---------|------|
+| 01 | [docs/rules/01_response-basics.md](docs/rules/01_response-basics.md) | 回答の基本ルール（要約・事実ベース・選択肢提示） |
+| 02 | [docs/rules/02_task-management.md](docs/rules/02_task-management.md) | タスク管理（tasks.md運用） |
+| 03 | [docs/rules/03_file-index.md](docs/rules/03_file-index.md) | ファイルインデックス管理 |
+| 04 | [docs/rules/04_deliverables-and-models.md](docs/rules/04_deliverables-and-models.md) | 成果物報告・モデル使い分け・出力フォーマット |
+| 05 | [docs/rules/05_git-and-execution.md](docs/rules/05_git-and-execution.md) | Git操作・実行計画・タイムアウト対策 |
 
-## プロフィール
+## プロジェクト概要
 
-- **名前**: 男座員也（おざ かずや / Kazuya Oza）
-- **職種**: データサイエンティスト・生成AIコンサルタント（フリーランス）
+NASDAQ 3倍レバレッジ戦略 (Dyn 2x3x A2 Optimized) を Google Apps Script で自動運用するシステム。
 
-## ブランチ構成
+**戦略**: DD × VT(AsymEWMA+TrendTV) × SlopeMult × MomDecel × VIX_MeanReversion → ポートフォリオ配分 (TQQQ/Gold/TMF)
 
-| ブランチ | 内容 | 状態 |
-|---------|------|------|
-| `claude/implementation-JjBAl` | **メイン実装**（Dyn 2x3x A2 Optimized、3資産配分） | 本番運用中 |
-| `claude/nasdaq-leverage-trading-gas-aG2xt` | 基本GAS実装（旧版） | 参照のみ |
-| `claude/investment-strategy-tracking-gt8uD` | 投資戦略トラッキング連携 | 参照のみ |
-
-## コア戦略ロジック（Dyn 2x3x A2 Optimized）
-
-```
-最終レバレッジ = DD × VT × SlopeMult × MomDecel × VIXMult
-
-リバランス条件（バックテストと完全一致）:
-  |raw_leverage - current_leverage| > 0.20  または  DD状態変化
-```
-
-## GitHub
-https://github.com/KazuyaMurayama/nasdaq-strategy-gas
+**研究リポジトリ**: https://github.com/KazuyaMurayama/NASDAQ_backtest
