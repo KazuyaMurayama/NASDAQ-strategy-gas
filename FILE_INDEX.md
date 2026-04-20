@@ -19,6 +19,8 @@
 | [docs/rules/05_git-and-execution.md](docs/rules/05_git-and-execution.md) | Git操作・実行計画 |
 
 ## 🔧 GAS ソースコード（src/）
+最新戦略: **Dyn 2x3x A2 Optimized**（2026-04-02 確立 / 2026-04-16 更新）
+
 | ファイル | 役割 |
 |---------|------|
 | [src/Code.gs](src/Code.gs) | **メイン**: CONFIG, dailyUpdate(), dryRun() |
@@ -37,12 +39,3 @@
 |---------|------|
 | [README.md](README.md) | プロジェクト概要・セットアップ手順 |
 | [docs/session-summary-2026-04-09.md](docs/session-summary-2026-04-09.md) | 2026-04-09 時点の実装サマリー |
-| [.claude/rules/](. claude/rules/) | レガシー rules（旧セッションのもの、参考） |
-
-## 🌿 Branches（参考・main が最新スーパーセット）
-- `claude/implementation-JjBAl` — main の元。履歴参照用
-- `claude/investment-strategy-tracking-gt8uD` — 旧Dyn-Hybrid (EWMA VIX) 実装。**戦略比較時のみ参照**
-- `claude/create-file-index-vVbP4` — FILE_INDEX.md 作成初版
-- `claude/nasdaq-leverage-trading-gas-aG2xt` — LINE Webhook初期実装
-
-**同種ファイルが複数ある場合は main を優先、ブランチは歴史的参照のみ。**
