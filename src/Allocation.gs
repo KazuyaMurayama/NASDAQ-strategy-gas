@@ -8,6 +8,13 @@
  * w_bond   = (1 - w_nasdaq) × 0.50
  *
  * リバランス実行条件: 最大ドリフト > 20% または DD状態変化
+ *
+ * 実保有計算 (Approach A / スリーブ独立方式):
+ *   actual_tqqq = w_nasdaq × rawLeverage      (NASDAQスリーブ内のTQQQ)
+ *   actual_gold = w_gold                       (Gold スリーブ: lev非依存・常時保有)
+ *   actual_bond = w_bond                       (Bond スリーブ: lev非依存・常時保有)
+ *   actual_cash = w_nasdaq × (1 - rawLeverage) (NASDAQスリーブ内バッファのみ)
+ *   合計 = w_nasdaq + w_gold + w_bond = 1.0
  */
 
 /**
@@ -39,6 +46,28 @@ function calcAllocation(rawLeverage, vixZ) {
     w_nasdaq: wNasdaq,
     w_gold:   wGold,
     w_bond:   wBond
+  };
+}
+
+
+/**
+ * Approach A: スリーブ独立型の実保有比率を計算
+ * Gold/Bond は rawLeverage に依存せず常時保有、NASDAQスリーブのみレバ管理。
+ * 合計は w_nasdaq + w_gold + w_bond = 1.000 を保証。
+ *
+ * @param {number} rawLeverage - クリップ済みrawLeverage [0, 1]
+ * @param {Object} targetWeights - {w_nasdaq, w_gold, w_bond}
+ * @return {Object} {actual_tqqq, actual_gold, actual_bond, actual_cash}
+ */
+function calcActualHoldings(rawLeverage, targetWeights) {
+  var wN = targetWeights.w_nasdaq;
+  var wG = targetWeights.w_gold;
+  var wB = targetWeights.w_bond;
+  return {
+    actual_tqqq: rawLeverage * wN,         // NASDAQスリーブ内TQQQ
+    actual_gold: wG,                        // lev非依存
+    actual_bond: wB,                        // lev非依存
+    actual_cash: (1 - rawLeverage) * wN    // NASDAQスリーブ内バッファのみ
   };
 }
 

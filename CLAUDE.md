@@ -21,7 +21,10 @@
 
 NASDAQ 3倍レバレッジ戦略を Google Apps Script で自動運用するシステム。
 
-**最新戦略**: `Dyn 2x3x A2 Optimized`（2026-04-02 確立 / Code.gs 最終更新 2026-04-16）
-- 構成: DD × VT(AsymEWMA+TrendTV) × SlopeMult × MomDecel × VIX_MeanReversion → 3資産配分 (TQQQ/Gold/TMF)
+**最新戦略**: `DH Dyn 2x3x [A]` (Approach A / スリーブ独立) ※2026-04-20 切替
+- シグナル: A2 Optimized = DD × VT(AsymEWMA+TrendTV) × SlopeMult × MomDecel × VIX_MR
+- 配分: 3資産 (TQQQ/Gold/Bond) + Gold/Bond は lev 非依存・常時保有
+- 期待CAGR (1974-2026): +30.30% (旧 Approach B: +24.46% から +5.84pp 改善)
+- 切替記録: [docs/APPROACH_A_MIGRATION_2026-04-20.md](docs/APPROACH_A_MIGRATION_2026-04-20.md)
 
 **研究リポジトリ**: https://github.com/KazuyaMurayama/NASDAQ_backtest

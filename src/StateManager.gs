@@ -12,7 +12,11 @@
  *
  * Logシート: 日次計算結果 (26列) ※列順はアクション優先
  *   A: date, B: close
- *   C-F: actual_tqqq/gold/bond/cash（実保有比率 = 結論）
+ *   C-F: actual_tqqq/gold/bond/cash（実保有比率 = 結論、Approach A スリーブ独立式）
+ *        actual_tqqq = lev × w_nasdaq
+ *        actual_gold = w_gold (lev非依存)
+ *        actual_bond = w_bond (lev非依存)
+ *        actual_cash = (1 - lev) × w_nasdaq  (NASDAQスリーブ内バッファのみ)
  *   G: rebalanced
  *   H: forward_cagr_5d（5営業日後CAGR年率）
  *   I: forward_median_5d（5営業日後中央値）
@@ -129,13 +133,16 @@ function appendLog_(ss, entry) {
   var wG  = entry.w_gold   || 0;
   var wB  = entry.w_bond   || 0;
 
+  // Approach A: スリーブ独立型実保有 (Gold/Bond は lev非依存)
+  var holdings = calcActualHoldings(lev, { w_nasdaq: wN, w_gold: wG, w_bond: wB });
+
   sheet.appendRow([
     entry.date,                              // A: date
     entry.close,                             // B: close
-    r2_(lev * wN, 4),                       // C: actual_tqqq
-    r2_(lev * wG, 4),                       // D: actual_gold
-    r2_(lev * wB, 4),                       // E: actual_bond
-    r2_(1 - lev,  4),                       // F: actual_cash
+    r2_(holdings.actual_tqqq, 4),           // C: actual_tqqq = lev × w_nasdaq
+    r2_(holdings.actual_gold, 4),           // D: actual_gold = w_gold (lev非依存)
+    r2_(holdings.actual_bond, 4),           // E: actual_bond = w_bond (lev非依存)
+    r2_(holdings.actual_cash, 4),           // F: actual_cash = (1-lev) × w_nasdaq
     entry.rebalanced ? 'YES' : 'NO',        // G: rebalanced
     r2_(entry.forward_cagr_5d,   1),       // H: forward_cagr_5d
     r2_(entry.forward_median_5d, 2),       // I: forward_median_5d

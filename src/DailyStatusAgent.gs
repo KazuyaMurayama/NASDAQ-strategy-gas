@@ -24,24 +24,24 @@ function sendDailyStatus(entry, rebalanced) {
   if (rebalanced) return;
 
   var lev = entry.new_leverage != null ? entry.new_leverage : 0;
-  var actualNasdaq = entry.w_nasdaq != null ? lev * entry.w_nasdaq : null;
-  var actualGold   = entry.w_gold   != null ? lev * entry.w_gold   : null;
-  var actualBond   = entry.w_bond   != null ? lev * entry.w_bond   : null;
-  var actualCash   = 1 - lev;
+  var hasWeights = entry.w_nasdaq != null;
+  // Approach A: スリーブ独立型 (Gold/Bondは常時保有、CASHはNASDAQバッファのみ)
+  var holdings = hasWeights ? calcActualHoldings(lev, {
+    w_nasdaq: entry.w_nasdaq, w_gold: entry.w_gold, w_bond: entry.w_bond
+  }) : null;
 
   var regime    = getRegimeName_(entry.dd_state, entry.raw_leverage);
-  var hasWeights = entry.w_nasdaq != null;
   var fwdCagr   = formatFwdReturn_(entry.forward_cagr_5d);
   var fwdMedian = formatFwdReturn_(entry.forward_median_5d);
 
   var lines = [
     '[Dyn 2x3x 日次ステータス] ' + entry.date,
     '━━━━━━━━━━━━━━━━',
-    '📊 現在の保有配分:',
-    '  TQQQ (NASDAQ 3x):  ' + (hasWeights ? pct_(actualNasdaq) : 'N/A'),
-    '  2036 (Gold 2x):    ' + (hasWeights ? pct_(actualGold)   : 'N/A'),
-    '  TMF  (Bond 3x):    ' + (hasWeights ? pct_(actualBond)   : 'N/A'),
-    '  CASH (現金):       ' + (hasWeights ? pct_(actualCash)   : 'N/A'),
+    '📊 現在の保有配分 (Approach A / スリーブ独立):',
+    '  TQQQ (NASDAQ 3x):  ' + (holdings ? pct_(holdings.actual_tqqq) : 'N/A'),
+    '  2036 (Gold 2x):    ' + (holdings ? pct_(holdings.actual_gold) + ' ※常時保有' : 'N/A'),
+    '  TMF  (Bond 3x):    ' + (holdings ? pct_(holdings.actual_bond) + ' ※常時保有' : 'N/A'),
+    '  CASH (NASDAQバッファ): ' + (holdings ? pct_(holdings.actual_cash) : 'N/A'),
     '',
     '📈 5営業日後フォワードリターン（過去統計）:',
     '  CAGR年率: ' + fwdCagr + '  中央値: ' + fwdMedian,

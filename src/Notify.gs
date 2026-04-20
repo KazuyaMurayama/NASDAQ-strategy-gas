@@ -66,10 +66,10 @@ function getRegimeName_(ddState, rawLeverage) {
 
 function buildRebalanceMessage_(e) {
   var lev = e.new_leverage;
-  var actualNasdaq = lev * e.w_nasdaq;
-  var actualGold   = lev * e.w_gold;
-  var actualBond   = lev * e.w_bond;
-  var actualCash   = 1 - lev;
+  // Approach A: Gold/Bond は lev非依存・常時保有、CASHはNASDAQスリーブ内バッファのみ
+  var holdings = calcActualHoldings(lev, {
+    w_nasdaq: e.w_nasdaq, w_gold: e.w_gold, w_bond: e.w_bond
+  });
 
   var regime    = getRegimeName_(e.dd_state, e.raw_leverage);
   var fwdCagr   = formatFwdReturn_(e.forward_cagr_5d);
@@ -78,11 +78,11 @@ function buildRebalanceMessage_(e) {
   var lines = [
     '[Dyn 2x3x シグナル] ' + e.date,
     '━━━━━━━━━━━━━━━━',
-    '📊 実際の保有配分:',
-    '  TQQQ (NASDAQ 3x):  ' + pct_(actualNasdaq),
-    '  2036 (Gold 2x):    ' + pct_(actualGold),
-    '  TMF  (Bond 3x):    ' + pct_(actualBond),
-    '  CASH (現金):       ' + pct_(actualCash),
+    '📊 実際の保有配分 (Approach A / スリーブ独立):',
+    '  TQQQ (NASDAQ 3x):  ' + pct_(holdings.actual_tqqq),
+    '  2036 (Gold 2x):    ' + pct_(holdings.actual_gold) + ' ※常時保有',
+    '  TMF  (Bond 3x):    ' + pct_(holdings.actual_bond) + ' ※常時保有',
+    '  CASH (NASDAQバッファ): ' + pct_(holdings.actual_cash),
     '',
     '📈 5営業日後フォワードリターン（過去統計）:',
     '  CAGR年率: ' + fwdCagr + '  中央値: ' + fwdMedian,

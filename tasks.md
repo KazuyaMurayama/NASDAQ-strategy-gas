@@ -3,17 +3,23 @@
 最終更新: 2026-04-20
 
 ## 🔴 In Progress
-- [ ] リバランス閾値スイープ検証 (Dyn 2x3x A2 Optimized)
-  - 現行 `CONFIG.REBALANCE.THRESHOLD = 0.20` に対し、9点スイープで7指標改善を検証
-  - 7指標: CAGR / Worst5Y / Sharpe / MaxDD / Worst10Y / WinRate / 取引回数
-  - IS=1974-2021-05-07 / OOS=2021-05-08-2026-03-28 / Walk-Forward 3窓
-  - 選定はIS単独、OOS/WFは事後確認のみ（再選定禁止）
-  - 実装は `nasdaq_backtest/src/test_threshold_sweep.py`、成果物もそちらに配置
-
-## 🟡 Pending
 (なし)
 
+## 🟡 Pending
+- [ ] 切替後初回 dailyUpdate の挙動確認（自動リバランス指示が出ること、Gold/Bond が 0 にならないこと）
+- [ ] 1ヶ月運用後の OOS パフォーマンス vs バックテスト乖離 < 1% 確認
+- [ ] リバランス閾値スイープ検証 (T=0.15 vs T=0.20 詳細比較)
+  - IS=1974-2021-05-07 / OOS=2021-05-08-2026-03-28 / Walk-Forward 3窓
+  - 選定はIS単独、OOS/WFは事後確認のみ（再選定禁止）
+  - 実装は `nasdaq_backtest/src/test_threshold_sweep.py`
+
 ## ✅ Completed
+- **2026-04-20: 戦略を Approach B → Approach A へ切替** (CAGR +24.46% → +30.30% 期待)
+  - Allocation.gs: `calcActualHoldings()` 追加
+  - StateManager.gs / Notify.gs / DailyStatusAgent.gs: スリーブ独立式へ
+  - Code.gs: ヘッダーコメント・dryRun() ログ更新
+  - 検証: 4ケース全て理論値と一致 (diff 0.000pp)
+  - 詳細: [docs/APPROACH_A_MIGRATION_2026-04-20.md](docs/APPROACH_A_MIGRATION_2026-04-20.md)
 - 2026-04-20: GAS実装の本番運用テスト
 - 2026-04-20: エラー通知（LINE）の実機確認
 - 2026-04-20: バックテスト結果との整合性検証（四半期ごと）

@@ -1,6 +1,6 @@
 # File Index — nasdaq-strategy-gas
 
-最終更新: 2026-04-19
+最終更新: 2026-04-20
 
 ## 📁 Living Docs（毎回参照）
 | ファイル | 役割 |
@@ -19,7 +19,7 @@
 | [docs/rules/05_git-and-execution.md](docs/rules/05_git-and-execution.md) | Git操作・実行計画 |
 
 ## 🔧 GAS ソースコード（src/）
-最新戦略: **Dyn 2x3x A2 Optimized**（2026-04-02 確立 / 2026-04-16 更新）
+最新戦略: **DH Dyn 2x3x [A] (Approach A / スリーブ独立)**（2026-04-20 切替 / シグナルは A2 Optimized）
 
 | ファイル | 役割 |
 |---------|------|
@@ -38,4 +38,5 @@
 | ファイル | 役割 |
 |---------|------|
 | [README.md](README.md) | プロジェクト概要・セットアップ手順 |
+| [docs/APPROACH_A_MIGRATION_2026-04-20.md](docs/APPROACH_A_MIGRATION_2026-04-20.md) | **B→A 切替記録**(2026-04-20 / CAGR +24.46% → +30.30%) |
 | [docs/session-summary-2026-04-09.md](docs/session-summary-2026-04-09.md) | 2026-04-09 時点の実装サマリー |

@@ -1,13 +1,25 @@
 /**
- * NASDAQ 3x + Gold 2x + Bond 3x 動的配分戦略「Dyn 2x3x」
+ * NASDAQ 3x + Gold 2x + Bond 3x 動的配分戦略「Dyn 2x3x [A]」
  * メインエントリーポイント
  *
- * 戦略: A2 Optimized (5-layer)
- * rawLeverage = DD(0.82/0.92) × VT(AsymEWMA(30/10), TrendTV(10-30%))
- *             × SlopeMult(base=0.9, sens=0.35) × MomDecel(60/180)
- *             × VIX_MeanReversion(coeff=0.25, MA=252)
- * rawLeverage = clip(rawLeverage, 0, 1.0)
- * finalLeverage = rebalance_threshold(rawLeverage, 0.20)
+ * 戦略: DH Dyn 2x3x [Approach A / スリーブ独立型]
+ *       (旧: Approach B = 統合レバレッジ方式から 2026-04-20 切替)
+ *
+ * シグナル: A2 Optimized (5-layer)
+ *   rawLeverage = DD(0.82/0.92) × VT(AsymEWMA(30/10), TrendTV(10-30%))
+ *               × SlopeMult(base=0.9, sens=0.35) × MomDecel(60/180)
+ *               × VIX_MeanReversion(coeff=0.25, MA=252)
+ *   rawLeverage = clip(rawLeverage, 0, 1.0)
+ *   finalLeverage = rebalance_threshold(rawLeverage, 0.20)
+ *
+ * 実保有 (スリーブ独立):
+ *   TQQQ = w_nasdaq × lev   (NASDAQスリーブ内TQQQ)
+ *   Gold = w_gold            (常時100%、lev非依存)
+ *   Bond = w_bond            (常時100%、lev非依存)
+ *   CASH = w_nasdaq × (1-lev) (NASDAQスリーブ内バッファのみ)
+ *
+ * 期待CAGR (1974-2026, 全期間): +30.30% (B 24.46% から +5.84pp)
+ * 詳細: docs/APPROACH_A_MIGRATION_2026-04-20.md
  */
 
 // ===== グローバル設定 =====
@@ -231,7 +243,7 @@ function dryRun() {
   var state  = loadState_(ss);
   var needed = calcMinDataNeeded_();
 
-  Logger.log('=== Dry Run: Dyn 2x3x A2 Optimized ===');
+  Logger.log('=== Dry Run: Dyn 2x3x [A] (Approach A / スリーブ独立) ===');
   Logger.log('データ: ' + prices.length + '/' + needed + '日');
   if (prices.length < needed) { Logger.log('データ不足'); return; }
 
@@ -258,11 +270,18 @@ function dryRun() {
   Logger.log('MomDecel: ' + mom.toFixed(4));
   Logger.log('VIX_z:    ' + vix.vix_z.toFixed(4) + '  mult=' + vix.mult.toFixed(4));
   Logger.log('rawLev:   ' + rawLev.toFixed(4) + '  currentLev: ' + state.current_leverage.toFixed(4));
-  Logger.log('--- 目標配分 ---');
-  Logger.log('TQQQ: ' + pct_(targetW.w_nasdaq));
-  Logger.log('2036: ' + pct_(targetW.w_gold));
-  Logger.log('TMF:  ' + pct_(targetW.w_bond));
-  Logger.log('現在: TQQQ=' + pct_(state.current_weights.w_nasdaq) +
+  Logger.log('--- 目標ウェイト (w_*) ---');
+  Logger.log('w_nasdaq: ' + pct_(targetW.w_nasdaq));
+  Logger.log('w_gold:   ' + pct_(targetW.w_gold));
+  Logger.log('w_bond:   ' + pct_(targetW.w_bond));
+  // Approach A: 実保有 (スリーブ独立)
+  var dryHoldings = calcActualHoldings(rawLev, targetW);
+  Logger.log('--- 実保有 (Approach A / スリーブ独立) ---');
+  Logger.log('TQQQ:          ' + pct_(dryHoldings.actual_tqqq) + ' (= w_nasdaq × lev)');
+  Logger.log('2036 (Gold):   ' + pct_(dryHoldings.actual_gold) + ' (= w_gold, lev非依存)');
+  Logger.log('TMF  (Bond):   ' + pct_(dryHoldings.actual_bond) + ' (= w_bond, lev非依存)');
+  Logger.log('CASH (バッファ): ' + pct_(dryHoldings.actual_cash) + ' (= w_nasdaq × (1-lev))');
+  Logger.log('現在ウェイト: TQQQ=' + pct_(state.current_weights.w_nasdaq) +
              ' Gold=' + pct_(state.current_weights.w_gold) +
              ' Bond=' + pct_(state.current_weights.w_bond));
   Logger.log('レバレッジ差: ' + (leverageDiff * 100).toFixed(1) + '%  リバランス: ' + (rebal ? 'YES' : 'NO'));
