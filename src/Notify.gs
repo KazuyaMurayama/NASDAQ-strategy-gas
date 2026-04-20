@@ -74,12 +74,20 @@ function buildRebalanceMessage_(e) {
   var regime    = getRegimeName_(e.dd_state, e.raw_leverage);
   var fwdCagr   = formatFwdReturn_(e.forward_cagr_5d);
   var fwdMedian = formatFwdReturn_(e.forward_median_5d);
+  var isDD      = (e.dd_state === 'CASH');
 
   var lines = [
     '[Dyn 2x3x シグナル] ' + e.date,
-    '━━━━━━━━━━━━━━━━',
+    '━━━━━━━━━━━━━━━━'
+  ];
+  if (isDD) {
+    lines.push('⚠️ DD発動中: TQQQのみ全額キャッシュ化。');
+    lines.push('   Gold/Bond (2036/TMF) は常時保有のため売却しません。');
+    lines.push('');
+  }
+  lines.push(
     '📊 実際の保有配分 (Approach A / スリーブ独立):',
-    '  TQQQ (NASDAQ 3x):  ' + pct_(holdings.actual_tqqq),
+    '  TQQQ (NASDAQ 3x):  ' + pct_(holdings.actual_tqqq) + (isDD ? ' ← DDのため0%' : ''),
     '  2036 (Gold 2x):    ' + pct_(holdings.actual_gold) + ' ※常時保有',
     '  TMF  (Bond 3x):    ' + pct_(holdings.actual_bond) + ' ※常時保有',
     '  CASH (NASDAQバッファ): ' + pct_(holdings.actual_cash),
@@ -101,7 +109,7 @@ function buildRebalanceMessage_(e) {
     '  レジーム: ' + regime,
     '  NASDAQ終値: ' + e.close,
     '━━━━━━━━━━━━━━━━'
-  ];
+  );
   return lines.join('\n');
 }
 
