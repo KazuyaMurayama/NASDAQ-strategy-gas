@@ -3,7 +3,12 @@
 最終更新: 2026-04-20
 
 ## 🔴 In Progress
-(なし)
+- [ ] リバランス閾値スイープ検証 (Dyn 2x3x A2 Optimized)
+  - 現行 `CONFIG.REBALANCE.THRESHOLD = 0.20` に対し、9点スイープで7指標改善を検証
+  - 7指標: CAGR / Worst5Y / Sharpe / MaxDD / Worst10Y / WinRate / 取引回数
+  - IS=1974-2021-05-07 / OOS=2021-05-08-2026-03-28 / Walk-Forward 3窓
+  - 選定はIS単独、OOS/WFは事後確認のみ（再選定禁止）
+  - 実装は `nasdaq_backtest/src/test_threshold_sweep.py`、成果物もそちらに配置
 
 ## 🟡 Pending
 (なし)
