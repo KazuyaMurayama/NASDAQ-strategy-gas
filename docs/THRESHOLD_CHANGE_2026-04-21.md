@@ -22,19 +22,24 @@ shouldRebalance = ddToZero OR ddFromZero OR |rawLev - currentLev| > THRESHOLD
 
 ## 2. 変更理由
 
-別セッションでの閾値スイープ検証（[THRESHOLD_SWEEP_REPORT_2026-04-20.md](https://github.com/KazuyaMurayama/NASDAQ_backtest/blob/main/THRESHOLD_SWEEP_REPORT_2026-04-20.md)）より、T=0.15 が T=0.20 より以下指標で優位:
+**一次根拠**: [THRESHOLD_SWEEP_A_REPORT_2026-04-21.md](https://github.com/KazuyaMurayama/NASDAQ_backtest/blob/main/THRESHOLD_SWEEP_A_REPORT_2026-04-21.md) — **Approach A 内での閾値スイープ検証、明示的に「推奨: 0.15」**
+
+T=0.15 vs 現行 T=0.20（Approach A、FULL期間 52.26年）:
 
 | 指標 | T=0.20 (旧) | T=0.15 (新) | 差 |
 |------|------------|------------|-----|
-| IS CAGR | 30.9% | **31.4%** | +0.5pp ✅ |
-| IS Sharpe | 1.331 | **1.338** | +0.007 ✅ |
-| IS MaxDD | -32.6% | **-31.4%** | +1.2pp ✅ |
-| OOS CAGR (2021-2026) | 25.1% | **25.5%** | +0.4pp ✅ |
-| IS Worst5Y | **+5.3%** | +4.8% | -0.5pp ⚠️ |
-| **取引回数** | 881 | **1,259** | **+43%** ⚠️ |
+| **FULL CAGR** | 30.30% | **30.81%** | +0.51pp ✅ |
+| IS CAGR | 30.89% | **31.42%** | +0.53pp ✅ |
+| OOS CAGR | 25.15% | **25.49%** | +0.34pp ✅ |
+| FULL Sharpe | 1.291 | **1.298** | +0.007 ✅ |
+| FULL MaxDD | -32.55% | **-31.36%** | +1.19pp ✅ |
+| WinRate | 83.02% | **83.02%** | 同率 ✅ |
+| IS Worst5Y | **+5.32%** | +4.77% | -0.55pp ⚠️ |
+| **取引回数/年** | 18.8 | **27.1** | **+44%** ⚠️ |
 
-**優位**: CAGR / Sharpe / MaxDD 全て改善
-**代償**: 取引回数が +43%（24営業日/年 vs 17営業日/年）
+**優位**: CAGR (FULL/IS/OOS) / Sharpe / MaxDD / WinRate が改善または同率
+**代償**: 取引回数が +44%（月2.3回 vs 月1.6回）。ただし GAS自動執行のためオペ負担は無視可能（研究側明記）
+**懸念（WF2）**: 2015-19低ボラ期のみ CAGR -1.98pp 劣化 → 長期では他期間の優位で相殺
 
 ---
 

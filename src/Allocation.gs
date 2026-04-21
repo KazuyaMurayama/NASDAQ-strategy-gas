@@ -7,7 +7,7 @@
  * w_gold   = (1 - w_nasdaq) × 0.50
  * w_bond   = (1 - w_nasdaq) × 0.50
  *
- * リバランス実行条件: 最大ドリフト > 20% または DD状態変化
+ * リバランス実行条件: 最大ドリフト > 15% または DD状態変化  ※2026-04-21: 20%→15%に変更
  *
  * 実保有計算 (Approach A / スリーブ独立方式):
  *   actual_tqqq = w_nasdaq × rawLeverage      (NASDAQスリーブ内のTQQQ)
