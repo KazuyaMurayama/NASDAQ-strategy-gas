@@ -10,7 +10,7 @@
  *               × SlopeMult(base=0.9, sens=0.35) × MomDecel(60/180)
  *               × VIX_MeanReversion(coeff=0.25, MA=252)
  *   rawLeverage = clip(rawLeverage, 0, 1.0)
- *   finalLeverage = rebalance_threshold(rawLeverage, 0.20)
+ *   finalLeverage = rebalance_threshold(rawLeverage, 0.15)  // 2026-04-21: 0.20→0.15
  *
  * 実保有 (スリーブ独立):
  *   TQQQ = w_nasdaq × lev   (NASDAQスリーブ内TQQQ)
@@ -73,7 +73,7 @@ var CONFIG = {
     MAX:        1.15
   },
   REBALANCE: {
-    THRESHOLD:    0.20,
+    THRESHOLD:    0.15,  // 2026-04-21: 0.20→0.15 (IS CAGR +0.5pp / OOS CAGR +0.4pp / 取引 +43%)
     LEVERAGE_MIN: 0.0,
     LEVERAGE_MAX: 1.0
   },
